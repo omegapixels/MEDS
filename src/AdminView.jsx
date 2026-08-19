@@ -117,6 +117,73 @@ function Dashboard({ onLock }) {
     notify('✓ تم تغيير كلمة السر')
   }
 
+  const printPDF = () => {
+    const target = day || new Date().toISOString().slice(0, 10)
+    const rows = visits.filter((v) => new Date(v.entered_at).toISOString().slice(0, 10) === target)
+    const dateStr = new Date(target + 'T12:00:00').toLocaleDateString('ar-SY', {
+      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+    })
+    const body = rows.length
+      ? rows
+          .map(
+            (v, i) => `<tr>
+              <td>${i + 1}</td>
+              <td class="b">${v.visitor_name}</td>
+              <td dir="ltr">${v.phone}</td>
+              <td>${v.purpose || '—'}</td>
+              <td>${v.guards?.name || '—'}</td>
+              <td>${fmtTime(v.entered_at)}</td>
+              <td>${v.exited_at ? fmtTime(v.exited_at) : 'لم يغادر'}</td>
+              <td>${duration(v.entered_at, v.exited_at)}</td>
+            </tr>`
+          )
+          .join('')
+      : '<tr><td colspan="8" style="text-align:center">لا توجد زيارات مسجلة في هذا اليوم</td></tr>'
+    const html = `<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8">
+<title>التقرير اليومي — ${target}</title>
+<style>
+@font-face{font-family:'Qomra';src:url('${location.origin}/fonts/Qomra-Regular.woff2') format('woff2');font-weight:400}
+@font-face{font-family:'Qomra';src:url('${location.origin}/fonts/Qomra-Bold.woff2') format('woff2');font-weight:700}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Qomra','IBM Plex Sans Arabic',sans-serif;color:#161616;padding:28px;font-size:13px}
+.head{text-align:center;border-bottom:2px solid #b9a779;padding-bottom:14px;margin-bottom:6px}
+.head .stars{color:#b9a779;letter-spacing:6px;font-size:13px}
+.head h1{color:#002723;font-size:20px;margin:6px 0 2px}
+.head h2{color:#02443a;font-size:15px;font-weight:400}
+.meta{display:flex;justify-content:space-between;margin:12px 0;font-size:13.5px;color:#3c3c3d}
+table{width:100%;border-collapse:collapse;margin-top:6px}
+th{background:#02443a;color:#b9a779;padding:7px 8px;font-size:12.5px;text-align:right}
+td{border:1px solid #cfc9b5;padding:6px 8px}
+td.b{font-weight:700}
+tr:nth-child(even) td{background:#f4f2e8}
+.summary{margin-top:14px;font-size:13px;color:#02443a}
+.sign{display:flex;justify-content:space-between;margin-top:60px;padding:0 30px}
+.sign .box{text-align:center;width:220px}
+.sign .line{border-top:1.5px solid #161616;margin-top:55px;padding-top:8px;font-weight:700;color:#002723}
+@media print{body{padding:10px}}
+</style></head><body>
+<div class="head">
+  <div class="stars">★ ★ ★</div>
+  <h1>مديرية الطوارئ وإدارة الكوارث — حمص</h1>
+  <h2>التقرير اليومي لسجل دخول وخروج الزوار</h2>
+</div>
+<div class="meta"><span>التاريخ: ${dateStr}</span><span>عدد الزيارات: ${rows.length}</span></div>
+<table>
+  <thead><tr><th>#</th><th>الاسم</th><th>الهاتف</th><th>الغاية</th><th>الحارس المناوب</th><th>الدخول</th><th>الخروج</th><th>المدة</th></tr></thead>
+  <tbody>${body}</tbody>
+</table>
+<div class="summary">ما يزال داخل المديرية: ${rows.filter((v) => !v.exited_at).length} — غادروا: ${rows.filter((v) => v.exited_at).length}</div>
+<div class="sign">
+  <div class="box"><div class="line">توقيع مسؤول الحراسة</div></div>
+  <div class="box"><div class="line">توقيع المدير</div></div>
+</div>
+<script>window.onload=()=>setTimeout(()=>window.print(),400)</` + `script>
+</body></html>`
+    const w = window.open('', '_blank')
+    w.document.write(html)
+    w.document.close()
+  }
+
   const exportCSV = () => {
     const rows = [
       ['الاسم', 'الهاتف', 'الغاية', 'الحارس المناوب', 'وقت الدخول', 'وقت الخروج', 'المدة'],
@@ -161,7 +228,10 @@ function Dashboard({ onLock }) {
       <div className="card">
         <div className="card-head">
           <h2>سجل الزيارات</h2>
-          <div style={{ display: 'flex', gap: 8 }}>
+          <div className="head-actions">
+            <button className="btn btn-gold" style={{ padding: '7px 14px', fontSize: 13 }} onClick={printPDF}>
+              🖨 تقرير PDF اليومي
+            </button>
             <button className="btn btn-gold" style={{ padding: '7px 14px', fontSize: 13 }} onClick={exportCSV}>
               ⬇ تصدير CSV
             </button>
