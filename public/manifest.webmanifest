@@ -1,0 +1,16 @@
+{
+  "name": "سجل الحرس — مديرية الطوارئ وإدارة الكوارث بحمص",
+  "short_name": "سجل الحرس",
+  "description": "تسجيل دخول وخروج الزوار — مديرية الطوارئ وإدارة الكوارث في حمص",
+  "lang": "ar",
+  "dir": "rtl",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#002723",
+  "theme_color": "#002723",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

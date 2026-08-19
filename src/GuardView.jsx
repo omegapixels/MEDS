@@ -1,11 +1,16 @@
 import { useEffect, useState, useCallback } from 'react'
 import { supabase } from './supabase.js'
-import { fmtTime, duration } from './helpers.js'
+import { fmtDateTime, duration } from './helpers.js'
 
 export default function GuardView() {
   const [guards, setGuards] = useState([])
   const [active, setActive] = useState([])
-  const [form, setForm] = useState({ visitor_name: '', phone: '', plate: '', purpose: '', guard_id: '' })
+  const [form, setForm] = useState({
+    visitor_name: '', phone: '', plate: '', purpose: '', training_dept: '', notes: '', guard_id: '',
+  })
+
+  const PURPOSES = ['تدريب', 'مسابقة', 'مراجعة', 'طلب', 'أخرى']
+  const TRAINING_DEPTS = ['دائرة التمكين', 'دائرة الحماية المدنية', 'دائرة التنمية الإدارية']
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState('')
 
@@ -32,17 +37,22 @@ export default function GuardView() {
   const submit = async (e) => {
     e.preventDefault()
     if (!form.visitor_name.trim()) return notify('الاسم إلزامي')
+    if (!form.purpose) return notify('اختر الغاية من الزيارة')
+    if (form.purpose === 'تدريب' && !form.training_dept) return notify('اختر الدائرة المعنية بالتدريب')
+    if (!form.notes.trim()) return notify('خانة الملاحظات إجبارية')
+    const purpose = form.purpose === 'تدريب' ? `تدريب — ${form.training_dept}` : form.purpose
     setSaving(true)
     const { error } = await supabase.from('visits').insert({
       visitor_name: form.visitor_name.trim(),
       phone: form.phone.trim() || null,
       plate: form.plate.trim() || null,
-      purpose: form.purpose.trim() || null,
+      purpose,
+      notes: form.notes.trim(),
       guard_id: form.guard_id || null,
     })
     setSaving(false)
     if (error) return notify('حدث خطأ، حاول مجدداً')
-    setForm((f) => ({ ...f, visitor_name: '', phone: '', plate: '', purpose: '' }))
+    setForm((f) => ({ ...f, visitor_name: '', phone: '', plate: '', purpose: '', training_dept: '', notes: '' }))
     notify('✓ تم تسجيل الدخول بنجاح')
     load()
   }
@@ -91,11 +101,51 @@ export default function GuardView() {
               />
             </div>
             <div className="field">
-              <label>الغاية من الزيارة</label>
-              <input
+              <label>
+                الغاية من الزيارة <span className="req">*</span>
+              </label>
+              <select
                 value={form.purpose}
-                onChange={(e) => setForm({ ...form, purpose: e.target.value })}
-                placeholder="اختياري"
+                onChange={(e) => setForm({ ...form, purpose: e.target.value, training_dept: '' })}
+                required
+              >
+                <option value="">— اختر الغاية —</option>
+                {PURPOSES.map((p) => (
+                  <option key={p} value={p}>
+                    {p}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {form.purpose === 'تدريب' && (
+              <div className="field">
+                <label>
+                  الدائرة المعنية بالتدريب <span className="req">*</span>
+                </label>
+                <select
+                  value={form.training_dept}
+                  onChange={(e) => setForm({ ...form, training_dept: e.target.value })}
+                  required
+                >
+                  <option value="">— اختر الدائرة —</option>
+                  {TRAINING_DEPTS.map((d) => (
+                    <option key={d} value={d}>
+                      {d}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+            <div className="field">
+              <label>
+                ملاحظات <span className="req">*</span>
+              </label>
+              <textarea
+                rows={2}
+                value={form.notes}
+                onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                placeholder="ملاحظات الحارس حول الزيارة"
+                required
               />
             </div>
             <div className="field">
@@ -135,7 +185,7 @@ export default function GuardView() {
                   <div className="meta">
                     {v.phone && <span>📞 {v.phone}</span>}
                     {v.plate && <span>🚗 {v.plate}</span>}
-                    <span>🕐 دخل {fmtTime(v.entered_at)}</span>
+                    <span>🕐 دخل {fmtDateTime(v.entered_at)}</span>
                     <span>⏱ منذ {duration(v.entered_at)}</span>
                     {v.guards?.name && <span>🛡 {v.guards.name}</span>}
                   </div>
