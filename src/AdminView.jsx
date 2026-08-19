@@ -168,7 +168,7 @@ tr:nth-child(even) td{background:#f4f2e8}
 @media print{body{padding:10px}}
 </style></head><body>
 <div class="head">
-  <div class="stars">★ ★ ★</div>
+  <img src="${location.origin}/logo.png" alt="" style="height:110px;object-fit:contain;margin-bottom:6px" />
   <h1>مديرية الطوارئ وإدارة الكوارث — حمص</h1>
   <h2>التقرير اليومي لسجل دخول وخروج الزوار</h2>
 </div>
