@@ -5,7 +5,7 @@ import { fmtTime, duration } from './helpers.js'
 export default function GuardView() {
   const [guards, setGuards] = useState([])
   const [active, setActive] = useState([])
-  const [form, setForm] = useState({ visitor_name: '', phone: '', purpose: '', guard_id: '' })
+  const [form, setForm] = useState({ visitor_name: '', phone: '', plate: '', purpose: '', guard_id: '' })
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState('')
 
@@ -31,17 +31,18 @@ export default function GuardView() {
 
   const submit = async (e) => {
     e.preventDefault()
-    if (!form.visitor_name.trim() || !form.phone.trim()) return notify('الاسم ورقم الهاتف إلزاميان')
+    if (!form.visitor_name.trim()) return notify('الاسم إلزامي')
     setSaving(true)
     const { error } = await supabase.from('visits').insert({
       visitor_name: form.visitor_name.trim(),
-      phone: form.phone.trim(),
+      phone: form.phone.trim() || null,
+      plate: form.plate.trim() || null,
       purpose: form.purpose.trim() || null,
       guard_id: form.guard_id || null,
     })
     setSaving(false)
     if (error) return notify('حدث خطأ، حاول مجدداً')
-    setForm((f) => ({ ...f, visitor_name: '', phone: '', purpose: '' }))
+    setForm((f) => ({ ...f, visitor_name: '', phone: '', plate: '', purpose: '' }))
     notify('✓ تم تسجيل الدخول بنجاح')
     load()
   }
@@ -73,15 +74,20 @@ export default function GuardView() {
               />
             </div>
             <div className="field">
-              <label>
-                رقم الهاتف <span className="req">*</span>
-              </label>
+              <label>رقم الهاتف</label>
               <input
                 value={form.phone}
                 onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                placeholder="09XXXXXXXX"
+                placeholder="09XXXXXXXX (اختياري)"
                 inputMode="tel"
-                required
+              />
+            </div>
+            <div className="field">
+              <label>لوحة السيارة</label>
+              <input
+                value={form.plate}
+                onChange={(e) => setForm({ ...form, plate: e.target.value })}
+                placeholder="اختياري"
               />
             </div>
             <div className="field">
@@ -127,7 +133,8 @@ export default function GuardView() {
                     {v.visitor_name}
                   </div>
                   <div className="meta">
-                    <span>📞 {v.phone}</span>
+                    {v.phone && <span>📞 {v.phone}</span>}
+                    {v.plate && <span>🚗 {v.plate}</span>}
                     <span>🕐 دخل {fmtTime(v.entered_at)}</span>
                     <span>⏱ منذ {duration(v.entered_at)}</span>
                     {v.guards?.name && <span>🛡 {v.guards.name}</span>}

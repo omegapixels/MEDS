@@ -86,7 +86,8 @@ function Dashboard({ onLock }) {
     const matchQ =
       !q ||
       v.visitor_name.includes(q) ||
-      v.phone.includes(q) ||
+      (v.phone || '').includes(q) ||
+      (v.plate || '').includes(q) ||
       (v.purpose || '').includes(q) ||
       (v.guards?.name || '').includes(q)
     const matchDay = !day || new Date(v.entered_at).toISOString().slice(0, 10) === day
@@ -129,7 +130,8 @@ function Dashboard({ onLock }) {
             (v, i) => `<tr>
               <td>${i + 1}</td>
               <td class="b">${v.visitor_name}</td>
-              <td dir="ltr">${v.phone}</td>
+              <td dir="ltr">${v.phone || '—'}</td>
+              <td dir="ltr">${v.plate || '—'}</td>
               <td>${v.purpose || '—'}</td>
               <td>${v.guards?.name || '—'}</td>
               <td>${fmtTime(v.entered_at)}</td>
@@ -138,7 +140,7 @@ function Dashboard({ onLock }) {
             </tr>`
           )
           .join('')
-      : '<tr><td colspan="8" style="text-align:center">لا توجد زيارات مسجلة في هذا اليوم</td></tr>'
+      : '<tr><td colspan="9" style="text-align:center">لا توجد زيارات مسجلة في هذا اليوم</td></tr>'
     const html = `<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8">
 <title>التقرير اليومي — ${target}</title>
 <style>
@@ -169,7 +171,7 @@ tr:nth-child(even) td{background:#f4f2e8}
 </div>
 <div class="meta"><span>التاريخ: ${dateStr}</span><span>عدد الزيارات: ${rows.length}</span></div>
 <table>
-  <thead><tr><th>#</th><th>الاسم</th><th>الهاتف</th><th>الغاية</th><th>الحارس المناوب</th><th>الدخول</th><th>الخروج</th><th>المدة</th></tr></thead>
+  <thead><tr><th>#</th><th>الاسم</th><th>الهاتف</th><th>لوحة السيارة</th><th>الغاية</th><th>الحارس المناوب</th><th>الدخول</th><th>الخروج</th><th>المدة</th></tr></thead>
   <tbody>${body}</tbody>
 </table>
 <div class="summary">ما يزال داخل المديرية: ${rows.filter((v) => !v.exited_at).length} — غادروا: ${rows.filter((v) => v.exited_at).length}</div>
@@ -186,10 +188,11 @@ tr:nth-child(even) td{background:#f4f2e8}
 
   const exportCSV = () => {
     const rows = [
-      ['الاسم', 'الهاتف', 'الغاية', 'الحارس المناوب', 'وقت الدخول', 'وقت الخروج', 'المدة'],
+      ['الاسم', 'الهاتف', 'لوحة السيارة', 'الغاية', 'الحارس المناوب', 'وقت الدخول', 'وقت الخروج', 'المدة'],
       ...filtered.map((v) => [
         v.visitor_name,
-        v.phone,
+        v.phone || '',
+        v.plate || '',
         v.purpose || '',
         v.guards?.name || '',
         fmtDateTime(v.entered_at),
@@ -256,6 +259,7 @@ tr:nth-child(even) td{background:#f4f2e8}
                 <tr>
                   <th>الاسم</th>
                   <th>الهاتف</th>
+                  <th>اللوحة</th>
                   <th>الغاية</th>
                   <th>الحارس</th>
                   <th>الدخول</th>
@@ -267,7 +271,7 @@ tr:nth-child(even) td{background:#f4f2e8}
               <tbody>
                 {filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={8} style={{ textAlign: 'center', color: 'var(--stone)' }}>
+                    <td colSpan={9} style={{ textAlign: 'center', color: 'var(--stone)' }}>
                       لا توجد نتائج
                     </td>
                   </tr>
@@ -275,7 +279,8 @@ tr:nth-child(even) td{background:#f4f2e8}
                   filtered.map((v) => (
                     <tr key={v.id}>
                       <td style={{ fontWeight: 700 }}>{v.visitor_name}</td>
-                      <td dir="ltr">{v.phone}</td>
+                      <td dir="ltr">{v.phone || '—'}</td>
+                      <td dir="ltr">{v.plate || '—'}</td>
                       <td>{v.purpose || '—'}</td>
                       <td>{v.guards?.name || '—'}</td>
                       <td>{fmtDateTime(v.entered_at)}</td>
