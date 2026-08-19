@@ -133,7 +133,7 @@ function Dashboard({ onLock }) {
             (v, i) => `<tr>
               <td>${i + 1}</td>
               <td class="b">${v.visitor_name}</td>
-              <td dir="ltr">${v.phone || '—'}</td>
+              <td dir="ltr">${v.phone || v.employee_id || '—'}</td>
               <td dir="ltr">${v.plate || '—'}</td>
               <td>${v.purpose || '—'}</td>
               <td>${v.notes || '—'}</td>
@@ -176,7 +176,7 @@ tr:nth-child(even) td{background:#f4f2e8}
 </div>
 <div class="meta"><span>التاريخ: ${dateStr}</span><span>عدد الزيارات: ${rows.length}</span></div>
 <table>
-  <thead><tr><th>#</th><th>الاسم</th><th>الهاتف</th><th>لوحة السيارة</th><th>الغاية</th><th>ملاحظات</th><th>الحارس المناوب</th><th>الدخول</th><th>الخروج</th><th>المدة</th></tr></thead>
+  <thead><tr><th>#</th><th>الاسم</th><th>الهاتف/الرقم الوظيفي</th><th>لوحة السيارة</th><th>الغاية</th><th>ملاحظات</th><th>الحارس المناوب</th><th>الدخول</th><th>الخروج</th><th>المدة</th></tr></thead>
   <tbody>${body}</tbody>
 </table>
 <div class="summary">ما يزال داخل المديرية: ${rows.filter((v) => !v.exited_at).length} — غادروا: ${rows.filter((v) => v.exited_at).length}</div>
@@ -193,10 +193,12 @@ tr:nth-child(even) td{background:#f4f2e8}
 
   const exportCSV = () => {
     const rows = [
-      ['الاسم', 'الهاتف', 'لوحة السيارة', 'الغاية', 'ملاحظات', 'الحارس المناوب', 'وقت الدخول', 'وقت الخروج', 'المدة'],
+      ['الاسم', 'الهاتف', 'الرقم الوظيفي', 'الجهة', 'لوحة السيارة', 'الغاية', 'ملاحظات', 'الحارس المناوب', 'وقت الدخول', 'وقت الخروج', 'المدة'],
       ...filtered.map((v) => [
         v.visitor_name,
         v.phone || '',
+        v.employee_id || '',
+        v.org || '',
         v.plate || '',
         v.purpose || '',
         v.notes || '',
@@ -264,7 +266,7 @@ tr:nth-child(even) td{background:#f4f2e8}
               <thead>
                 <tr>
                   <th>الاسم</th>
-                  <th>الهاتف</th>
+                  <th>الهاتف / الرقم الوظيفي</th>
                   <th>اللوحة</th>
                   <th>الغاية</th>
                   <th>ملاحظات</th>
@@ -286,7 +288,7 @@ tr:nth-child(even) td{background:#f4f2e8}
                   filtered.map((v) => (
                     <tr key={v.id}>
                       <td style={{ fontWeight: 700 }}>{v.visitor_name}</td>
-                      <td dir="ltr">{v.phone || '—'}</td>
+                      <td dir="ltr">{v.phone || v.employee_id || '—'}</td>
                       <td dir="ltr">{v.plate || '—'}</td>
                       <td>{v.purpose || '—'}</td>
                       <td style={{ whiteSpace: 'normal', minWidth: 140 }}>{v.notes || '—'}</td>
