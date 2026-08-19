@@ -87,6 +87,8 @@ function Dashboard({ onLock }) {
       !q ||
       v.visitor_name.includes(q) ||
       (v.phone || '').includes(q) ||
+      (v.employee_id || '').includes(q) ||
+      (v.org || '').includes(q) ||
       (v.plate || '').includes(q) ||
       (v.purpose || '').includes(q) ||
       (v.notes || '').includes(q) ||

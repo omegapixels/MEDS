@@ -191,6 +191,35 @@ body::before {
 .btn-ghost { background: transparent; border: 1px solid var(--sand); color: var(--emerald); padding: 8px 14px; font-size: 13.5px; }
 .btn-danger-ghost { background: transparent; border: 1px solid var(--damask); color: var(--damask); padding: 6px 12px; font-size: 13px; }
 
+/* ===== مبدّل نوع الضيف ===== */
+.vtype-switch {
+  display: flex;
+  gap: 6px;
+  background: rgba(2, 68, 58, 0.08);
+  border: 1px solid var(--sand);
+  border-radius: 12px;
+  padding: 5px;
+  margin-bottom: 18px;
+}
+.vtype-btn {
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: var(--emerald);
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 500;
+  padding: 10px 6px;
+  border-radius: 9px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.vtype-btn.active {
+  background: var(--emerald);
+  color: var(--gold);
+  font-weight: 700;
+}
+
 /* ===== قائمة النشطين ===== */
 .person {
   display: flex;
