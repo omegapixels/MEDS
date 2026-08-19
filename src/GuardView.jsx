@@ -10,7 +10,7 @@ export default function GuardView() {
   })
 
   const PURPOSES = ['تدريب', 'مسابقة', 'مراجعة', 'طلب', 'أخرى']
-  const TRAINING_DEPTS = ['دائرة التمكين', 'دائرة الحماية المدنية', 'دائرة التنمية الإدارية']
+  const TRAINING_DEPTS = ['دائرة التمكين', 'دائرة الحماية المدنية', 'دائرة التنمية الإدارية', 'أخرى']
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState('')
 
@@ -96,8 +96,10 @@ export default function GuardView() {
               <label>لوحة السيارة</label>
               <input
                 value={form.plate}
-                onChange={(e) => setForm({ ...form, plate: e.target.value })}
-                placeholder="اختياري"
+                onChange={(e) => setForm({ ...form, plate: e.target.value.replace(/[^0-9]/g, '') })}
+                placeholder="أرقام فقط (اختياري)"
+                inputMode="numeric"
+                dir="ltr"
               />
             </div>
             <div className="field">

@@ -122,7 +122,7 @@ function Dashboard({ onLock }) {
   const printPDF = () => {
     const target = day || new Date().toISOString().slice(0, 10)
     const rows = visits.filter((v) => new Date(v.entered_at).toISOString().slice(0, 10) === target)
-    const dateStr = new Date(target + 'T12:00:00').toLocaleDateString('ar-SY', {
+    const dateStr = new Date(target + 'T12:00:00').toLocaleDateString('ar-SY-u-nu-latn', {
       weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
     })
     const body = rows.length
@@ -149,22 +149,22 @@ function Dashboard({ onLock }) {
 @font-face{font-family:'Qomra';src:url('${location.origin}/fonts/Qomra-Regular.woff2') format('woff2');font-weight:400}
 @font-face{font-family:'Qomra';src:url('${location.origin}/fonts/Qomra-Bold.woff2') format('woff2');font-weight:700}
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Qomra','IBM Plex Sans Arabic',sans-serif;color:#161616;padding:28px;font-size:13px}
+body{font-family:'Qomra','IBM Plex Sans Arabic',sans-serif;color:#161616;padding:20px;font-size:11px}
 .head{text-align:center;border-bottom:2px solid #b9a779;padding-bottom:14px;margin-bottom:6px}
 .head .stars{color:#b9a779;letter-spacing:6px;font-size:13px}
 .head h1{color:#002723;font-size:20px;margin:6px 0 2px}
 .head h2{color:#02443a;font-size:15px;font-weight:400}
 .meta{display:flex;justify-content:space-between;margin:12px 0;font-size:13.5px;color:#3c3c3d}
 table{width:100%;border-collapse:collapse;margin-top:6px}
-th{background:#02443a;color:#b9a779;padding:7px 8px;font-size:12.5px;text-align:right}
-td{border:1px solid #cfc9b5;padding:6px 8px}
+th{background:#02443a;color:#b9a779;padding:6px 5px;font-size:10.5px;text-align:right}
+td{border:1px solid #cfc9b5;padding:5px 5px}
 td.b{font-weight:700}
 tr:nth-child(even) td{background:#f4f2e8}
 .summary{margin-top:14px;font-size:13px;color:#02443a}
 .sign{display:flex;justify-content:space-between;margin-top:60px;padding:0 30px}
 .sign .box{text-align:center;width:220px}
 .sign .line{border-top:1.5px solid #161616;margin-top:55px;padding-top:8px;font-weight:700;color:#002723}
-@page{size:A4 landscape;margin:12mm}
+@page{size:A4 portrait;margin:10mm}
 @media print{body{padding:10px}}
 </style></head><body>
 <div class="head">
@@ -180,7 +180,7 @@ tr:nth-child(even) td{background:#f4f2e8}
 <div class="summary">ما يزال داخل المديرية: ${rows.filter((v) => !v.exited_at).length} — غادروا: ${rows.filter((v) => v.exited_at).length}</div>
 <div class="sign">
   <div class="box"><div class="line">توقيع مسؤول الحراسة</div></div>
-  <div class="box"><div class="line">توقيع المدير</div></div>
+  <div class="box"><div class="line">توقيع رئيس الدائرة</div></div>
 </div>
 <script>window.onload=()=>setTimeout(()=>window.print(),400)</` + `script>
 </body></html>`
@@ -250,7 +250,7 @@ tr:nth-child(even) td{background:#f4f2e8}
         <div className="card-body">
           <div className="toolbar">
             <input type="text" placeholder="🔍 بحث بالاسم أو الهاتف…" value={q} onChange={(e) => setQ(e.target.value)} />
-            <input type="date" value={day} onChange={(e) => setDay(e.target.value)} />
+            <input type="date" lang="en" dir="ltr" value={day} onChange={(e) => setDay(e.target.value)} />
             {(q || day) && (
               <button className="btn btn-ghost" onClick={() => { setQ(''); setDay('') }}>
                 إلغاء الفلترة
