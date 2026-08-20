@@ -3,7 +3,16 @@ import { supabase } from './supabase.js'
 import { fmtDateTime, duration } from './helpers.js'
 
 export default function GuardView() {
-  const [guards, setGuards] = useState([])
+  const [guard, setGuard] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('meds_guard') || 'null')
+    } catch {
+      return null
+    }
+  })
+  const [loginUser, setLoginUser] = useState('')
+  const [loginPass, setLoginPass] = useState('')
+  const [loginErr, setLoginErr] = useState('')
   const [active, setActive] = useState([])
   const [vtype, setVtype] = useState('guest')
   const [form, setForm] = useState({
@@ -41,11 +50,11 @@ export default function GuardView() {
   }
 
   const load = useCallback(async () => {
-    const [g, v] = await Promise.all([
-      supabase.from('guards').select('*').eq('active', true).order('name'),
-      supabase.from('visits').select('*, guards(name)').is('exited_at', null).order('entered_at', { ascending: false }),
-    ])
-    if (!g.error) setGuards(g.data)
+    const v = await supabase
+      .from('visits')
+      .select('*, guards(name)')
+      .is('exited_at', null)
+      .order('entered_at', { ascending: false })
     if (!v.error) setActive(v.data)
   }, [])
 
@@ -69,7 +78,7 @@ export default function GuardView() {
         org: form.org,
         purpose: `موظف — ${form.org}`,
         notes: form.notes.trim() || null,
-        guard_id: form.guard_id || null,
+        guard_id: guard.id,
       }
     } else {
       if (!form.purpose) return notify('اختر الغاية من الزيارة')
@@ -82,7 +91,7 @@ export default function GuardView() {
         plate: form.plate.trim() || null,
         purpose: form.purpose === 'تدريب' ? `تدريب — ${form.training_dept}` : form.purpose,
         notes: form.notes.trim(),
-        guard_id: form.guard_id || null,
+        guard_id: guard.id,
       }
     }
     setSaving(true)
@@ -97,6 +106,29 @@ export default function GuardView() {
     load()
   }
 
+  const guardLogin = async (e) => {
+    e.preventDefault()
+    setLoginErr('')
+    const { data, error } = await supabase
+      .from('guards')
+      .select('id, name, active')
+      .eq('username', loginUser.trim())
+      .eq('password', loginPass)
+      .maybeSingle()
+    if (error || !data) return setLoginErr('اسم المستخدم أو كلمة المرور غير صحيحة')
+    if (!data.active) return setLoginErr('هذا الحساب موقوف — راجع المدير')
+    const session = { id: data.id, name: data.name }
+    localStorage.setItem('meds_guard', JSON.stringify(session))
+    setGuard(session)
+    setLoginUser('')
+    setLoginPass('')
+  }
+
+  const guardLogout = () => {
+    localStorage.removeItem('meds_guard')
+    setGuard(null)
+  }
+
   const exitVisitor = async (id, name) => {
     const { error } = await supabase.from('visits').update({ exited_at: new Date().toISOString() }).eq('id', id)
     if (error) return notify('تعذّر تسجيل الخروج')
@@ -104,7 +136,44 @@ export default function GuardView() {
     load()
   }
 
+  if (!guard) {
+    return (
+      <div className="card lock">
+        <div className="card-head">
+          <h2>تسجيل دخول الحارس</h2>
+        </div>
+        <div className="card-body">
+          <div className="icon">🛡</div>
+          <form onSubmit={guardLogin}>
+            <div className="field">
+              <label>اسم المستخدم</label>
+              <input value={loginUser} onChange={(e) => setLoginUser(e.target.value)} dir="ltr" autoFocus required />
+            </div>
+            <div className="field">
+              <label>كلمة المرور</label>
+              <input type="password" value={loginPass} onChange={(e) => setLoginPass(e.target.value)} required />
+            </div>
+            {loginErr && <p style={{ color: 'var(--damask)', fontSize: 13.5, marginBottom: 10 }}>{loginErr}</p>}
+            <button className="btn btn-primary">دخول</button>
+          </form>
+          <p style={{ marginTop: 14, fontSize: 12.5, color: 'var(--stone)', textAlign: 'center' }}>
+            لا تملك حساباً؟ اطلب من المدير إنشاءه لك
+          </p>
+        </div>
+      </div>
+    )
+  }
+
   return (
+    <div>
+      <div className="guard-bar">
+        <span>
+          🛡 الحارس المناوب: <b>{guard.name}</b>
+        </span>
+        <button className="btn btn-exit" onClick={guardLogout}>
+          تسجيل الخروج
+        </button>
+      </div>
     <div className="grid">
       <div className="card">
         <div className="card-head">
@@ -236,17 +305,6 @@ export default function GuardView() {
                 required={vtype === 'guest'}
               />
             </div>
-            <div className="field">
-              <label>الحارس المناوب</label>
-              <select value={form.guard_id} onChange={(e) => setForm({ ...form, guard_id: e.target.value })}>
-                <option value="">— اختر الحارس المناوب —</option>
-                {guards.map((g) => (
-                  <option key={g.id} value={g.id}>
-                    {g.name}
-                  </option>
-                ))}
-              </select>
-            </div>
             <button className="btn btn-primary" disabled={saving}>
               {saving ? 'جارٍ التسجيل…' : 'تسجيل الدخول الآن'}
             </button>
@@ -290,6 +348,7 @@ export default function GuardView() {
       </div>
 
       {toast && <div className="toast">{toast}</div>}
+    </div>
     </div>
   )
 }

@@ -220,6 +220,24 @@ body::before {
   font-weight: 700;
 }
 
+/* ===== شريط الحارس المسجّل ===== */
+.guard-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  background: rgba(235, 232, 215, 0.98);
+  color: var(--forest);
+  border-radius: var(--radius);
+  border-inline-start: 4px solid var(--gold);
+  box-shadow: var(--shadow);
+  padding: 12px 18px;
+  margin-bottom: 18px;
+  font-size: 14.5px;
+}
+.guard-bar b { color: var(--emerald); }
+
 /* ===== قائمة النشطين ===== */
 .person {
   display: flex;
@@ -289,6 +307,25 @@ tr:hover td { background: rgba(66, 129, 119, 0.08); }
 .guard-row:last-child { border-bottom: none; }
 .guard-row .g-name { font-weight: 500; color: var(--forest); }
 .guard-row .inactive { opacity: 0.45; text-decoration: line-through; }
+.acc-form {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  background: rgba(66, 129, 119, 0.1);
+  border-radius: 10px;
+  padding: 10px;
+  margin: 4px 0 10px;
+}
+.acc-form input {
+  flex: 1;
+  min-width: 130px;
+  padding: 9px 12px;
+  border: 1.5px solid var(--sand);
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 13.5px;
+}
+
 .add-guard { display: flex; gap: 8px; margin-top: 14px; }
 .add-guard input { flex: 1; padding: 10px 12px; border: 1.5px solid var(--sand); border-radius: 10px; font-family: inherit; font-size: 14px; }
 

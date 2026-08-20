@@ -56,6 +56,9 @@ function Dashboard({ onLock }) {
   const [q, setQ] = useState('')
   const [day, setDay] = useState('')
   const [newGuard, setNewGuard] = useState('')
+  const [accId, setAccId] = useState(null)
+  const [accUser, setAccUser] = useState('')
+  const [accPass, setAccPass] = useState('')
   const [newPw, setNewPw] = useState('')
   const [toast, setToast] = useState('')
 
@@ -104,6 +107,25 @@ function Dashboard({ onLock }) {
     if (error) return notify('تعذّرت إضافة الحارس')
     setNewGuard('')
     notify('✓ تمت إضافة الحارس')
+    load()
+  }
+
+  const openAccount = (g) => {
+    setAccId(g.id === accId ? null : g.id)
+    setAccUser(g.username || '')
+    setAccPass('')
+  }
+
+  const saveAccount = async (e) => {
+    e.preventDefault()
+    if (!accUser.trim() || !accPass.trim()) return notify('أدخل اسم المستخدم وكلمة المرور')
+    const { error } = await supabase
+      .from('guards')
+      .update({ username: accUser.trim(), password: accPass.trim() })
+      .eq('id', accId)
+    if (error) return notify(error.code === '23505' ? 'اسم المستخدم مستخدم لحارس آخر' : 'تعذّر حفظ الحساب')
+    setAccId(null)
+    notify('✓ تم حفظ حساب الحارس')
     load()
   }
 
@@ -316,11 +338,28 @@ tr:nth-child(even) td{background:#f4f2e8}
           </div>
           <div className="card-body">
             {guards.map((g) => (
-              <div className="guard-row" key={g.id}>
-                <span className={`g-name ${g.active ? '' : 'inactive'}`}>🛡 {g.name}</span>
-                <button className="btn btn-danger-ghost" onClick={() => toggleGuard(g)}>
-                  {g.active ? 'إيقاف' : 'تفعيل'}
-                </button>
+              <div key={g.id}>
+                <div className="guard-row">
+                  <span className={`g-name ${g.active ? '' : 'inactive'}`}>
+                    🛡 {g.name}
+                    {g.username && <small style={{ color: 'var(--teal)', marginInlineStart: 8 }} dir="ltr">@{g.username}</small>}
+                  </span>
+                  <span style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                    <button className="btn btn-ghost" style={{ padding: '6px 12px', fontSize: 13 }} onClick={() => openAccount(g)}>
+                      🔑 {g.username ? 'تعديل الحساب' : 'إنشاء حساب'}
+                    </button>
+                    <button className="btn btn-danger-ghost" onClick={() => toggleGuard(g)}>
+                      {g.active ? 'إيقاف' : 'تفعيل'}
+                    </button>
+                  </span>
+                </div>
+                {accId === g.id && (
+                  <form className="acc-form" onSubmit={saveAccount}>
+                    <input placeholder="اسم المستخدم" dir="ltr" value={accUser} onChange={(e) => setAccUser(e.target.value)} />
+                    <input placeholder="كلمة المرور الجديدة" dir="ltr" value={accPass} onChange={(e) => setAccPass(e.target.value)} />
+                    <button className="btn btn-gold" style={{ padding: '8px 16px', fontSize: 13.5 }}>حفظ</button>
+                  </form>
+                )}
               </div>
             ))}
             {guards.length === 0 && <div className="empty">لم تتم إضافة أي حارس بعد</div>}
