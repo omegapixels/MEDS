@@ -237,6 +237,43 @@ body::before {
   font-size: 14.5px;
 }
 .guard-bar b { color: var(--emerald); }
+.offline-pill {
+  background: rgba(109, 34, 45, 0.12);
+  color: var(--damask);
+  border-radius: 999px;
+  padding: 3px 11px;
+  font-size: 12px;
+  font-weight: 700;
+  margin-inline-start: 10px;
+  white-space: nowrap;
+}
+.offline-pill.sync { background: rgba(66, 129, 119, 0.15); color: var(--emerald); }
+.pending-tag {
+  background: rgba(185, 167, 121, 0.25);
+  color: #7a6a3f;
+  border-radius: 999px;
+  padding: 2px 9px;
+  font-size: 11px;
+  font-weight: 700;
+  margin-inline-start: 8px;
+  vertical-align: middle;
+}
+.bulk-toggle {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--emerald);
+  background: rgba(185, 167, 121, 0.14);
+  border: 1px dashed var(--sand);
+  border-radius: 10px;
+  padding: 10px 14px;
+  margin-bottom: 16px;
+  cursor: pointer;
+  user-select: none;
+}
+.bulk-toggle input { width: 17px; height: 17px; accent-color: var(--emerald); }
 
 /* ===== قائمة النشطين ===== */
 .person {
