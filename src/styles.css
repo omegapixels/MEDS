@@ -317,8 +317,9 @@ tr:hover td { background: rgba(66, 129, 119, 0.08); }
 /* ===== التثبيت واللوغو ===== */
 .install-btn {
   position: fixed;
-  top: 14px;
-  left: 14px;
+  bottom: 18px;
+  right: 50%;
+  transform: translateX(50%);
   z-index: 40;
   background: var(--gold);
   color: var(--forest);
@@ -334,7 +335,7 @@ tr:hover td { background: rgba(66, 129, 119, 0.08); }
 .install-btn:hover { filter: brightness(1.08); }
 .ios-hint {
   position: fixed;
-  top: 58px;
+  bottom: 68px;
   left: 14px;
   right: 14px;
   z-index: 40;
