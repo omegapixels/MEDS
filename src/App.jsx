@@ -4,7 +4,7 @@ import AdminView from './AdminView.jsx'
 
 export default function App() {
   const [tab, setTab] = useState(location.hash === '#/admin' ? 'admin' : 'guard')
-  const [installEvt, setInstallEvt] = useState(null)
+  const [installEvt, setInstallEvt] = useState(window.__installEvt || null)
   const [showIosHint, setShowIosHint] = useState(false)
 
   useEffect(() => {
@@ -15,9 +15,12 @@ export default function App() {
       setInstallEvt(e)
     }
     window.addEventListener('beforeinstallprompt', onPrompt)
+    const onReady = () => setInstallEvt(window.__installEvt)
+    window.addEventListener('install-ready', onReady)
     return () => {
       window.removeEventListener('hashchange', onHash)
       window.removeEventListener('beforeinstallprompt', onPrompt)
+      window.removeEventListener('install-ready', onReady)
     }
   }, [])
 
@@ -26,10 +29,14 @@ export default function App() {
   const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent)
 
   const install = async () => {
-    if (installEvt) {
-      installEvt.prompt()
-      const { outcome } = await installEvt.userChoice
-      if (outcome === 'accepted') setInstallEvt(null)
+    const evt = installEvt || window.__installEvt
+    if (evt) {
+      evt.prompt()
+      const { outcome } = await evt.userChoice
+      if (outcome === 'accepted') {
+        setInstallEvt(null)
+        window.__installEvt = null
+      }
     } else {
       setShowIosHint(true)
     }

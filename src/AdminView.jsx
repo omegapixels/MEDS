@@ -129,6 +129,14 @@ function Dashboard({ onLock }) {
     load()
   }
 
+  const deleteVisit = async (v) => {
+    if (!window.confirm(`هل أنت متأكد من حذف تسجيل «${v.visitor_name}» نهائياً من السجل؟`)) return
+    const { error } = await supabase.from('visits').delete().eq('id', v.id)
+    if (error) return notify('تعذّر حذف التسجيل')
+    notify('✓ تم حذف التسجيل')
+    load()
+  }
+
   const toggleGuard = async (g) => {
     await supabase.from('guards').update({ active: !g.active }).eq('id', g.id)
     load()
@@ -297,12 +305,13 @@ tr:nth-child(even) td{background:#f4f2e8}
                   <th>الخروج</th>
                   <th>المدة</th>
                   <th>الحالة</th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={10} style={{ textAlign: 'center', color: 'var(--stone)' }}>
+                    <td colSpan={11} style={{ textAlign: 'center', color: 'var(--stone)' }}>
                       لا توجد نتائج
                     </td>
                   </tr>
@@ -320,6 +329,11 @@ tr:nth-child(even) td{background:#f4f2e8}
                       <td>{duration(v.entered_at, v.exited_at)}</td>
                       <td>
                         {v.exited_at ? <span className="pill out">غادر</span> : <span className="pill in">بالداخل</span>}
+                      </td>
+                      <td>
+                        <button className="btn btn-danger-ghost" title="حذف السطر" onClick={() => deleteVisit(v)}>
+                          🗑
+                        </button>
                       </td>
                     </tr>
                   ))
