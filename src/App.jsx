@@ -30,7 +30,7 @@ export default function App() {
       installEvt.prompt()
       const { outcome } = await installEvt.userChoice
       if (outcome === 'accepted') setInstallEvt(null)
-    } else if (isIos) {
+    } else {
       setShowIosHint(true)
     }
   }
@@ -42,14 +42,16 @@ export default function App() {
 
   return (
     <div className="app">
-      {!isStandalone && (installEvt || isIos) && (
+      {!isStandalone && (
         <button className="install-btn" onClick={install}>
           ⬇ تثبيت التطبيق
         </button>
       )}
       {showIosHint && (
         <div className="ios-hint" onClick={() => setShowIosHint(false)}>
-          للتثبيت على آيفون: افتح قائمة المشاركة <b>⎋</b> ثم اختر «إضافة إلى الشاشة الرئيسية»
+          {isIos
+            ? 'للتثبيت على آيفون: افتح قائمة المشاركة ⎋ ثم اختر «إضافة إلى الشاشة الرئيسية»'
+            : 'للتثبيت: افتح قائمة المتصفح (⋮) ثم اختر «تثبيت التطبيق» أو «إضافة إلى الشاشة الرئيسية»'}
         </div>
       )}
       <header className="header">
