@@ -64,13 +64,14 @@ function Dashboard({ onLock }) {
   const [accUser, setAccUser] = useState('')
   const [accPass, setAccPass] = useState('')
   const [newPw, setNewPw] = useState('')
-  const [listTexts, setListTexts] = useState({ list_purposes: '', list_training_depts: '', list_orgs: '' })
+  const [listTexts, setListTexts] = useState({ list_purposes: '', list_training_depts: '', list_homs_depts: '', list_orgs: '' })
   const [edit, setEdit] = useState(null)
   const [toast, setToast] = useState('')
 
   const LIST_LABELS = {
     list_purposes: 'الغاية من الزيارة',
     list_training_depts: 'الدوائر المعنية بالتدريب',
+    list_homs_depts: 'دوائر مديرية حمص (للزيارات والاجتماعات)',
     list_orgs: 'الوزارة / المديريات',
   }
 
@@ -81,7 +82,7 @@ function Dashboard({ onLock }) {
       .in('key', Object.keys(LIST_LABELS))
       .then(({ data }) => {
         if (!data) return
-        const next = { list_purposes: '', list_training_depts: '', list_orgs: '' }
+        const next = { list_purposes: '', list_training_depts: '', list_homs_depts: '', list_orgs: '' }
         data.forEach((r) => {
           try {
             next[r.key] = JSON.parse(r.value).join('\n')

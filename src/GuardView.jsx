@@ -34,13 +34,14 @@ export default function GuardView() {
   const [vtype, setVtype] = useState('guest')
   const [bulk, setBulk] = useState(false)
   const [form, setForm] = useState({
-    visitor_name: '', names: '', phone: '', plate: '', purpose: '', training_dept: '', notes: '',
+    visitor_name: '', names: '', phone: '', plate: '', purpose: '', training_dept: '', homs_dept: '', notes: '',
     employee_id: '', org: '',
   })
 
   // القوائم المنسدلة قابلة للتعديل من صفحة المدير — تُحمّل من قاعدة البيانات مع نسخة محلية للأوفلاين
   const DEFAULT_LISTS = {
-    list_purposes: ['تدريب', 'مسابقة', 'مراجعة', 'طلب', 'أخرى'],
+    list_purposes: ['تدريب', 'مسابقة', 'مراجعة', 'طلب', 'زيارة أو اجتماع', 'أخرى'],
+    list_homs_depts: ['مكتب المدير', 'الديوان العام', 'دائرة التمكين', 'دائرة الحماية المدنية', 'دائرة التنمية الإدارية', 'دائرة الموارد البشرية', 'دائرة الشؤون المالية', 'دائرة الشؤون القانونية', 'دائرة العمليات', 'دائرة التخطيط والتعاون الدولي', 'دائرة الخدمات واللوجستيات', 'دائرة الإعلام والتوعية', 'دائرة تقانة المعلومات', 'دائرة الرصد والإنذار المبكر', 'دائرة الإسعاف والطبابة', 'دائرة الإطفاء', 'أخرى'],
     list_training_depts: ['دائرة التمكين', 'دائرة الحماية المدنية', 'دائرة التنمية الإدارية', 'أخرى'],
     list_orgs: ['وزارة الطوارئ وإدارة الكوارث (المركز)', 'مديرية طوارئ حمص', 'أخرى'],
   }
@@ -56,7 +57,7 @@ export default function GuardView() {
     supabase
       .from('app_settings')
       .select('key, value')
-      .in('key', ['list_purposes', 'list_training_depts', 'list_orgs'])
+      .in('key', ['list_purposes', 'list_training_depts', 'list_orgs', 'list_homs_depts'])
       .then(({ data }) => {
         if (!data?.length) return
         const next = { ...DEFAULT_LISTS }
@@ -73,6 +74,10 @@ export default function GuardView() {
   const ORGS = lists.list_orgs
   const PURPOSES = lists.list_purposes
   const TRAINING_DEPTS = lists.list_training_depts
+  const HOMS_DEPTS = lists.list_homs_depts
+  // الشروط تعتمد على «يحتوي» حتى تبقى صالحة لو عدّل المدير أسماء الغايات (تدريب/تدريبات، زيارة، اجتماع…)
+  const isTraining = (p) => (p || '').includes('تدريب')
+  const isMeeting = (p) => (p || '').includes('زيارة') || (p || '').includes('اجتماع')
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState('')
 
@@ -180,7 +185,7 @@ export default function GuardView() {
     }
     setSaving(false)
     setForm((f) => ({
-      ...f, visitor_name: '', names: '', phone: '', plate: '', purpose: '', training_dept: '', notes: '',
+      ...f, visitor_name: '', names: '', phone: '', plate: '', purpose: '', training_dept: '', homs_dept: '', notes: '',
       employee_id: '', org: '',
     }))
     notify(
@@ -211,13 +216,18 @@ export default function GuardView() {
       }
     } else {
       if (!form.purpose) return notify('اختر الغاية من الزيارة')
-      if (form.purpose === 'تدريب' && !form.training_dept) return notify('اختر الدائرة المعنية بالتدريب')
+      if (isTraining(form.purpose) && !form.training_dept) return notify('اختر الدائرة المعنية بالتدريب')
+      if (isMeeting(form.purpose) && !form.homs_dept) return notify('اختر الدائرة المقصودة بالزيارة')
       if (!form.notes.trim()) return notify('خانة الملاحظات إجبارية')
       base = {
         visitor_type: 'guest',
         phone: !bulk ? form.phone.trim() || null : null,
         plate: !bulk ? form.plate.trim() || null : null,
-        purpose: form.purpose === 'تدريب' ? `تدريب — ${form.training_dept}` : form.purpose,
+        purpose: isTraining(form.purpose)
+          ? `${form.purpose} — ${form.training_dept}`
+          : isMeeting(form.purpose)
+            ? `${form.purpose} — ${form.homs_dept}`
+            : form.purpose,
         notes: form.notes.trim(),
         guard_id: guard.id,
       }
@@ -421,7 +431,7 @@ export default function GuardView() {
               </label>
               <select
                 value={form.purpose}
-                onChange={(e) => setForm({ ...form, purpose: e.target.value, training_dept: '' })}
+                onChange={(e) => setForm({ ...form, purpose: e.target.value, training_dept: '', homs_dept: '' })}
                 required
               >
                 <option value="">— اختر الغاية —</option>
@@ -433,7 +443,26 @@ export default function GuardView() {
               </select>
             </div>
             )}
-            {vtype === 'guest' && form.purpose === 'تدريب' && (
+            {vtype === 'guest' && isMeeting(form.purpose) && (
+              <div className="field">
+                <label>
+                  الدائرة المقصودة بالزيارة <span className="req">*</span>
+                </label>
+                <select
+                  value={form.homs_dept}
+                  onChange={(e) => setForm({ ...form, homs_dept: e.target.value })}
+                  required
+                >
+                  <option value="">— اختر الدائرة —</option>
+                  {HOMS_DEPTS.map((d) => (
+                    <option key={d} value={d}>
+                      {d}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+            {vtype === 'guest' && isTraining(form.purpose) && (
               <div className="field">
                 <label>
                   الدائرة المعنية بالتدريب <span className="req">*</span>
