@@ -363,6 +363,29 @@ tr:hover td { background: rgba(66, 129, 119, 0.08); }
   font-size: 13.5px;
 }
 
+.edit-row td { background: rgba(66, 129, 119, 0.08) !important; white-space: normal; }
+.edit-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 10px;
+  padding: 6px 2px;
+}
+.edit-form .field { margin-bottom: 0; }
+.edit-form input {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1.5px solid var(--sand);
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 13.5px;
+}
+.edit-form .edit-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 8px;
+  justify-content: flex-start;
+}
+
 .add-guard { display: flex; gap: 8px; margin-top: 14px; }
 .add-guard input { flex: 1; padding: 10px 12px; border: 1.5px solid var(--sand); border-radius: 10px; font-family: inherit; font-size: 14px; }
 

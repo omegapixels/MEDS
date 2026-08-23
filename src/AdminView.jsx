@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { Fragment, useEffect, useState, useCallback } from 'react'
 import { supabase } from './supabase.js'
 import { fmtDateTime, fmtTime, duration, todayISO } from './helpers.js'
 
@@ -61,6 +61,7 @@ function Dashboard({ onLock }) {
   const [accPass, setAccPass] = useState('')
   const [newPw, setNewPw] = useState('')
   const [listTexts, setListTexts] = useState({ list_purposes: '', list_training_depts: '', list_orgs: '' })
+  const [edit, setEdit] = useState(null)
   const [toast, setToast] = useState('')
 
   const LIST_LABELS = {
@@ -169,6 +170,53 @@ function Dashboard({ onLock }) {
     const { error } = await supabase.from('visits').delete().eq('id', v.id)
     if (error) return notify('تعذّر حذف التسجيل')
     notify('✓ تم حذف التسجيل')
+    load()
+  }
+
+  const toLocal = (iso) => {
+    if (!iso) return ''
+    const d = new Date(iso)
+    const p = (n) => String(n).padStart(2, '0')
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`
+  }
+
+  const openEdit = (v) => {
+    if (edit && edit.id === v.id) return setEdit(null)
+    setEdit({
+      id: v.id,
+      visitor_name: v.visitor_name || '',
+      phone: v.phone || '',
+      employee_id: v.employee_id || '',
+      org: v.org || '',
+      plate: v.plate || '',
+      purpose: v.purpose || '',
+      notes: v.notes || '',
+      entered_at: toLocal(v.entered_at),
+      exited_at: toLocal(v.exited_at),
+    })
+  }
+
+  const saveEdit = async (e) => {
+    e.preventDefault()
+    if (!edit.visitor_name.trim()) return notify('الاسم مطلوب')
+    if (!edit.entered_at) return notify('وقت الدخول مطلوب')
+    const { error } = await supabase
+      .from('visits')
+      .update({
+        visitor_name: edit.visitor_name.trim(),
+        phone: edit.phone.trim() || null,
+        employee_id: edit.employee_id.trim() || null,
+        org: edit.org.trim() || null,
+        plate: edit.plate.trim() || null,
+        purpose: edit.purpose.trim() || null,
+        notes: edit.notes.trim() || null,
+        entered_at: new Date(edit.entered_at).toISOString(),
+        exited_at: edit.exited_at ? new Date(edit.exited_at).toISOString() : null,
+      })
+      .eq('id', edit.id)
+    if (error) return notify('تعذّر حفظ التعديلات')
+    setEdit(null)
+    notify('✓ تم حفظ التعديلات')
     load()
   }
 
@@ -352,25 +400,85 @@ tr:nth-child(even) td{background:#f4f2e8}
                   </tr>
                 ) : (
                   filtered.map((v) => (
-                    <tr key={v.id}>
-                      <td style={{ fontWeight: 700 }}>{v.visitor_name}</td>
-                      <td dir="ltr">{v.phone || v.employee_id || '—'}</td>
-                      <td dir="ltr">{v.plate || '—'}</td>
-                      <td>{v.purpose || '—'}</td>
-                      <td style={{ whiteSpace: 'normal', minWidth: 140 }}>{v.notes || '—'}</td>
-                      <td>{v.guards?.name || '—'}</td>
-                      <td>{fmtDateTime(v.entered_at)}</td>
-                      <td>{v.exited_at ? fmtDateTime(v.exited_at) : '—'}</td>
-                      <td>{duration(v.entered_at, v.exited_at)}</td>
-                      <td>
-                        {v.exited_at ? <span className="pill out">غادر</span> : <span className="pill in">بالداخل</span>}
-                      </td>
-                      <td>
-                        <button className="btn btn-danger-ghost" title="حذف السطر" onClick={() => deleteVisit(v)}>
-                          🗑
-                        </button>
-                      </td>
-                    </tr>
+                    <Fragment key={v.id}>
+                      <tr>
+                        <td style={{ fontWeight: 700 }}>{v.visitor_name}</td>
+                        <td dir="ltr">{v.phone || v.employee_id || '—'}</td>
+                        <td dir="ltr">{v.plate || '—'}</td>
+                        <td>{v.purpose || '—'}</td>
+                        <td style={{ whiteSpace: 'normal', minWidth: 140 }}>{v.notes || '—'}</td>
+                        <td>{v.guards?.name || '—'}</td>
+                        <td>{fmtDateTime(v.entered_at)}</td>
+                        <td>{v.exited_at ? fmtDateTime(v.exited_at) : '—'}</td>
+                        <td>{duration(v.entered_at, v.exited_at)}</td>
+                        <td>
+                          {v.exited_at ? <span className="pill out">غادر</span> : <span className="pill in">بالداخل</span>}
+                        </td>
+                        <td>
+                          <span style={{ display: 'flex', gap: 4 }}>
+                            <button
+                              className="btn btn-ghost"
+                              style={{ padding: '5px 9px' }}
+                              title="تعديل السطر"
+                              onClick={() => openEdit(v)}
+                            >
+                              ✏️
+                            </button>
+                            <button className="btn btn-danger-ghost" title="حذف السطر" onClick={() => deleteVisit(v)}>
+                              🗑
+                            </button>
+                          </span>
+                        </td>
+                      </tr>
+                      {edit && edit.id === v.id && (
+                        <tr className="edit-row">
+                          <td colSpan={11}>
+                            <form className="edit-form" onSubmit={saveEdit}>
+                              <div className="field">
+                                <label>الاسم *</label>
+                                <input value={edit.visitor_name} onChange={(e) => setEdit({ ...edit, visitor_name: e.target.value })} />
+                              </div>
+                              <div className="field">
+                                <label>الهاتف</label>
+                                <input dir="ltr" value={edit.phone} onChange={(e) => setEdit({ ...edit, phone: e.target.value })} />
+                              </div>
+                              <div className="field">
+                                <label>الرقم الوظيفي</label>
+                                <input dir="ltr" value={edit.employee_id} onChange={(e) => setEdit({ ...edit, employee_id: e.target.value })} />
+                              </div>
+                              <div className="field">
+                                <label>الجهة</label>
+                                <input value={edit.org} onChange={(e) => setEdit({ ...edit, org: e.target.value })} />
+                              </div>
+                              <div className="field">
+                                <label>لوحة السيارة</label>
+                                <input dir="ltr" inputMode="numeric" value={edit.plate} onChange={(e) => setEdit({ ...edit, plate: e.target.value.replace(/\D/g, '') })} />
+                              </div>
+                              <div className="field">
+                                <label>الغاية</label>
+                                <input value={edit.purpose} onChange={(e) => setEdit({ ...edit, purpose: e.target.value })} />
+                              </div>
+                              <div className="field">
+                                <label>ملاحظات</label>
+                                <input value={edit.notes} onChange={(e) => setEdit({ ...edit, notes: e.target.value })} />
+                              </div>
+                              <div className="field">
+                                <label>وقت الدخول *</label>
+                                <input type="datetime-local" lang="en" dir="ltr" value={edit.entered_at} onChange={(e) => setEdit({ ...edit, entered_at: e.target.value })} />
+                              </div>
+                              <div className="field">
+                                <label>وقت الخروج</label>
+                                <input type="datetime-local" lang="en" dir="ltr" value={edit.exited_at} onChange={(e) => setEdit({ ...edit, exited_at: e.target.value })} />
+                              </div>
+                              <div className="edit-actions">
+                                <button className="btn btn-primary" type="submit">💾 حفظ التعديلات</button>
+                                <button className="btn btn-ghost" type="button" onClick={() => setEdit(null)}>إلغاء</button>
+                              </div>
+                            </form>
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
                   ))
                 )}
               </tbody>
