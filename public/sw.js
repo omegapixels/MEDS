@@ -1,4 +1,4 @@
-const CACHE = 'meds-guard-v12'
+const CACHE = 'meds-guard-v13'
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(['/'])))

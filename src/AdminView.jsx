@@ -55,6 +55,10 @@ function Dashboard({ onLock }) {
   const [guards, setGuards] = useState([])
   const [q, setQ] = useState('')
   const [day, setDay] = useState('')
+  const [fGuard, setFGuard] = useState('')
+  const [fPurpose, setFPurpose] = useState('')
+  const [fStatus, setFStatus] = useState('')
+  const [fType, setFType] = useState('')
   const [newGuard, setNewGuard] = useState('')
   const [accId, setAccId] = useState(null)
   const [accUser, setAccUser] = useState('')
@@ -133,8 +137,16 @@ function Dashboard({ onLock }) {
       (v.notes || '').includes(q) ||
       (v.guards?.name || '').includes(q)
     const matchDay = !day || new Date(v.entered_at).toISOString().slice(0, 10) === day
-    return matchQ && matchDay
+    const matchGuard = !fGuard || String(v.guard_id) === fGuard
+    const matchPurpose = !fPurpose || (v.purpose || '').startsWith(fPurpose)
+    const matchStatus = !fStatus || (fStatus === 'in' ? !v.exited_at : !!v.exited_at)
+    const matchType = !fType || (v.visitor_type || 'guest') === fType
+    return matchQ && matchDay && matchGuard && matchPurpose && matchStatus && matchType
   })
+
+  const purposeOptions = [...new Set(visits.map((v) => (v.purpose || '').split(' — ')[0]).filter(Boolean))]
+  const hasFilters = q || day || fGuard || fPurpose || fStatus || fType
+  const clearFilters = () => { setQ(''); setDay(''); setFGuard(''); setFPurpose(''); setFStatus(''); setFType('') }
 
   const addGuard = async (e) => {
     e.preventDefault()
@@ -368,9 +380,31 @@ tr:nth-child(even) td{background:#f4f2e8}
           <div className="toolbar">
             <input type="text" placeholder="🔍 بحث بالاسم أو الهاتف…" value={q} onChange={(e) => setQ(e.target.value)} />
             <input type="date" lang="en" dir="ltr" value={day} onChange={(e) => setDay(e.target.value)} />
-            {(q || day) && (
-              <button className="btn btn-ghost" onClick={() => { setQ(''); setDay('') }}>
-                إلغاء الفلترة
+            <select value={fGuard} onChange={(e) => setFGuard(e.target.value)}>
+              <option value="">🛡 كل الحرس</option>
+              {guards.map((g) => (
+                <option key={g.id} value={String(g.id)}>{g.name}</option>
+              ))}
+            </select>
+            <select value={fPurpose} onChange={(e) => setFPurpose(e.target.value)}>
+              <option value="">🎯 كل الغايات</option>
+              {purposeOptions.map((p) => (
+                <option key={p} value={p}>{p}</option>
+              ))}
+            </select>
+            <select value={fStatus} onChange={(e) => setFStatus(e.target.value)}>
+              <option value="">📌 كل الحالات</option>
+              <option value="in">بالداخل</option>
+              <option value="out">غادر</option>
+            </select>
+            <select value={fType} onChange={(e) => setFType(e.target.value)}>
+              <option value="">👥 كل الأنواع</option>
+              <option value="guest">ضيف خارجي</option>
+              <option value="staff">من فرق الوزارة والمديريات</option>
+            </select>
+            {hasFilters && (
+              <button className="btn btn-ghost" onClick={clearFilters}>
+                إلغاء الفلترة ({filtered.length} نتيجة)
               </button>
             )}
           </div>

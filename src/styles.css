@@ -332,7 +332,7 @@ tr:hover td { background: rgba(66, 129, 119, 0.08); }
 .lock .icon { text-align: center; font-size: 42px; margin-bottom: 6px; }
 
 .toolbar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 16px; }
-.toolbar input[type="text"], .toolbar input[type="date"] {
+.toolbar input[type="text"], .toolbar input[type="date"], .toolbar select {
   padding: 9px 12px;
   border: 1.5px solid var(--sand);
   border-radius: 10px;
@@ -464,6 +464,7 @@ tr:hover td { background: rgba(66, 129, 119, 0.08); }
   .add-guard input { min-width: 0; }
   .toolbar input[type="text"] { flex: 1 1 100%; }
   .toolbar input[type="date"] { flex: 1; }
+  .toolbar select { flex: 1 1 45%; min-width: 0; }
   .stats { grid-template-columns: repeat(2, 1fr); gap: 10px; }
   .stat { padding: 14px 10px; }
   .stat .num { font-size: 24px; }
