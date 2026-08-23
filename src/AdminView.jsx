@@ -60,7 +60,42 @@ function Dashboard({ onLock }) {
   const [accUser, setAccUser] = useState('')
   const [accPass, setAccPass] = useState('')
   const [newPw, setNewPw] = useState('')
+  const [listTexts, setListTexts] = useState({ list_purposes: '', list_training_depts: '', list_orgs: '' })
   const [toast, setToast] = useState('')
+
+  const LIST_LABELS = {
+    list_purposes: 'الغاية من الزيارة',
+    list_training_depts: 'الدوائر المعنية بالتدريب',
+    list_orgs: 'الوزارة / المديريات',
+  }
+
+  useEffect(() => {
+    supabase
+      .from('app_settings')
+      .select('key, value')
+      .in('key', Object.keys(LIST_LABELS))
+      .then(({ data }) => {
+        if (!data) return
+        const next = { list_purposes: '', list_training_depts: '', list_orgs: '' }
+        data.forEach((r) => {
+          try {
+            next[r.key] = JSON.parse(r.value).join('\n')
+          } catch { /* تجاهل */ }
+        })
+        setListTexts(next)
+      })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const saveList = async (key) => {
+    const arr = listTexts[key].split('\n').map((s) => s.trim()).filter(Boolean)
+    if (!arr.length) return notify('القائمة لا يمكن أن تكون فارغة')
+    const { error } = await supabase
+      .from('app_settings')
+      .upsert({ key, value: JSON.stringify(arr) })
+    if (error) return notify('تعذّر حفظ القائمة')
+    notify(`✓ حُفظت قائمة «${LIST_LABELS[key]}» (${arr.length} خياراً)`)
+  }
 
   const notify = (m) => {
     setToast(m)
@@ -384,6 +419,37 @@ tr:nth-child(even) td{background:#f4f2e8}
           </div>
         </div>
 
+        <div className="card">
+          <div className="card-head">
+            <h2>القوائم المنسدلة</h2>
+          </div>
+          <div className="card-body">
+            <p style={{ fontSize: 12.5, color: 'var(--stone)', marginBottom: 12 }}>
+              عدّل الخيارات بحرية — خيار واحد في كل سطر، ثم اضغط حفظ. التعديل يظهر فوراً في واجهة الحارس.
+            </p>
+            {Object.keys(LIST_LABELS).map((key) => (
+              <div className="field" key={key}>
+                <label>{LIST_LABELS[key]}</label>
+                <textarea
+                  rows={4}
+                  value={listTexts[key]}
+                  onChange={(e) => setListTexts({ ...listTexts, [key]: e.target.value })}
+                />
+                <button
+                  type="button"
+                  className="btn btn-gold"
+                  style={{ padding: '7px 16px', fontSize: 13, marginTop: 6 }}
+                  onClick={() => saveList(key)}
+                >
+                  حفظ القائمة
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="grid section-gap">
         <div className="card">
           <div className="card-head">
             <h2>الإعدادات</h2>

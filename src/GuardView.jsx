@@ -38,27 +38,41 @@ export default function GuardView() {
     employee_id: '', org: '',
   })
 
-  const ORGS = [
-    'وزارة الطوارئ وإدارة الكوارث (المركز)',
-    'مديرية طوارئ دمشق',
-    'مديرية طوارئ ريف دمشق',
-    'مديرية طوارئ حلب',
-    'مديرية طوارئ حمص',
-    'مديرية طوارئ حماة',
-    'مديرية طوارئ اللاذقية',
-    'مديرية طوارئ طرطوس',
-    'مديرية طوارئ إدلب',
-    'مديرية طوارئ دير الزور',
-    'مديرية طوارئ الرقة',
-    'مديرية طوارئ الحسكة',
-    'مديرية طوارئ درعا',
-    'مديرية طوارئ السويداء',
-    'مديرية طوارئ القنيطرة',
-    'أخرى',
-  ]
-
-  const PURPOSES = ['تدريب', 'مسابقة', 'مراجعة', 'طلب', 'أخرى']
-  const TRAINING_DEPTS = ['دائرة التمكين', 'دائرة الحماية المدنية', 'دائرة التنمية الإدارية', 'أخرى']
+  // القوائم المنسدلة قابلة للتعديل من صفحة المدير — تُحمّل من قاعدة البيانات مع نسخة محلية للأوفلاين
+  const DEFAULT_LISTS = {
+    list_purposes: ['تدريب', 'مسابقة', 'مراجعة', 'طلب', 'أخرى'],
+    list_training_depts: ['دائرة التمكين', 'دائرة الحماية المدنية', 'دائرة التنمية الإدارية', 'أخرى'],
+    list_orgs: ['وزارة الطوارئ وإدارة الكوارث (المركز)', 'مديرية طوارئ حمص', 'أخرى'],
+  }
+  const [lists, setLists] = useState(() => {
+    try {
+      return { ...DEFAULT_LISTS, ...JSON.parse(localStorage.getItem('meds_lists') || '{}') }
+    } catch {
+      return DEFAULT_LISTS
+    }
+  })
+  useEffect(() => {
+    if (!navigator.onLine) return
+    supabase
+      .from('app_settings')
+      .select('key, value')
+      .in('key', ['list_purposes', 'list_training_depts', 'list_orgs'])
+      .then(({ data }) => {
+        if (!data?.length) return
+        const next = { ...DEFAULT_LISTS }
+        data.forEach((r) => {
+          try {
+            const arr = JSON.parse(r.value)
+            if (Array.isArray(arr) && arr.length) next[r.key] = arr
+          } catch { /* تجاهل القيم التالفة */ }
+        })
+        setLists(next)
+        localStorage.setItem('meds_lists', JSON.stringify(next))
+      })
+  }, [])
+  const ORGS = lists.list_orgs
+  const PURPOSES = lists.list_purposes
+  const TRAINING_DEPTS = lists.list_training_depts
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState('')
 
