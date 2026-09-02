@@ -50,9 +50,38 @@ export default function AdminView() {
   return <Dashboard onLock={() => { sessionStorage.removeItem('meds_admin'); setUnlocked(false) }} />
 }
 
+const PAGE_SIZE_OPTIONS = [25, 50, 100]
+
+// ===== شريط ترقيم صفحات عام =====
+function Pagination({ page, setPage, totalItems, pageSize, setPageSize }) {
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize))
+  const clampedPage = Math.min(page, totalPages)
+  if (clampedPage !== page) setPage(clampedPage)
+  if (totalItems === 0) return null
+  return (
+    <div className="pagination">
+      <button className="btn btn-ghost" disabled={clampedPage <= 1} onClick={() => setPage(clampedPage - 1)}>
+        السابق ›
+      </button>
+      <span className="page-info">
+        صفحة {clampedPage} من {totalPages} — {totalItems} نتيجة
+      </span>
+      <button className="btn btn-ghost" disabled={clampedPage >= totalPages} onClick={() => setPage(clampedPage + 1)}>
+        ‹ التالي
+      </button>
+      <select value={pageSize} onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1) }}>
+        {PAGE_SIZE_OPTIONS.map((n) => (
+          <option key={n} value={n}>{n} بالصفحة</option>
+        ))}
+      </select>
+    </div>
+  )
+}
+
 function Dashboard({ onLock }) {
   const [visits, setVisits] = useState([])
   const [guards, setGuards] = useState([])
+  const [deposits, setDeposits] = useState([])
   const [q, setQ] = useState('')
   const [day, setDay] = useState('')
   const [fGuard, setFGuard] = useState('')
@@ -67,6 +96,14 @@ function Dashboard({ onLock }) {
   const [listTexts, setListTexts] = useState({ list_purposes: '', list_training_depts: '', list_homs_depts: '', list_orgs: '' })
   const [edit, setEdit] = useState(null)
   const [toast, setToast] = useState('')
+
+  // ترقيم صفحات سجل الزيارات
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(25)
+
+  // ترقيم صفحات سجل الأمانات
+  const [depPage, setDepPage] = useState(1)
+  const [depPageSize, setDepPageSize] = useState(15)
 
   const LIST_LABELS = {
     list_purposes: 'الغاية من الزيارة',
@@ -109,12 +146,22 @@ function Dashboard({ onLock }) {
   }
 
   const load = useCallback(async () => {
-    const [v, g] = await Promise.all([
-      supabase.from('visits').select('*, guards(name)').order('entered_at', { ascending: false }).limit(500),
+    const [v, g, d] = await Promise.all([
+      supabase
+        .from('visits')
+        .select('*, guards!visits_guard_id_fkey(name), exit_guard:guards!visits_exit_guard_id_fkey(name)')
+        .order('entered_at', { ascending: false })
+        .limit(500),
       supabase.from('guards').select('*').order('name'),
+      supabase
+        .from('deposits')
+        .select('*, guards!deposits_guard_id_fkey(name), delivery_guard:guards!deposits_delivery_guard_id_fkey(name)')
+        .order('received_at', { ascending: false })
+        .limit(500),
     ])
     if (!v.error) setVisits(v.data)
     if (!g.error) setGuards(g.data)
+    if (!d.error) setDeposits(d.data)
   }, [])
 
   useEffect(() => {
@@ -125,6 +172,8 @@ function Dashboard({ onLock }) {
 
   const inside = visits.filter((v) => !v.exited_at)
   const today = visits.filter((v) => v.entered_at >= todayISO())
+  const depositsHeld = deposits.filter((d) => d.status === 'held')
+  const depositsPending = deposits.filter((d) => d.status === 'pending')
 
   const filtered = visits.filter((v) => {
     const matchQ =
@@ -144,6 +193,13 @@ function Dashboard({ onLock }) {
     const matchType = !fType || (v.visitor_type || 'guest') === fType
     return matchQ && matchDay && matchGuard && matchPurpose && matchStatus && matchType
   })
+
+  // إعادة الصفحة إلى البداية عند تغيّر أي فلتر
+  useEffect(() => {
+    setPage(1)
+  }, [q, day, fGuard, fPurpose, fStatus, fType, pageSize])
+
+  const pagedFiltered = filtered.slice((page - 1) * pageSize, page * pageSize)
 
   const purposeOptions = [...new Set(visits.map((v) => (v.purpose || '').split(' — ')[0]).filter(Boolean))]
   const hasFilters = q || day || fGuard || fPurpose || fStatus || fType
@@ -247,6 +303,35 @@ function Dashboard({ onLock }) {
     notify('✓ تم تغيير كلمة السر')
   }
 
+  // ===== الأمانات: موافقة / رفض تسليم =====
+  const approveDeposit = async (d) => {
+    const { error } = await supabase.from('deposits').update({ status: 'delivered' }).eq('id', d.id)
+    if (error) return notify('تعذّرت الموافقة على التسليم')
+    notify(`✓ تمت الموافقة على تسليم أمانة «${d.depositor_name}» إلى ${d.receiver_name}`)
+    load()
+  }
+
+  const rejectDeposit = async (d) => {
+    if (!window.confirm('هل أنت متأكد من رفض طلب التسليم؟ ستعود الأمانة إلى حالة «نشطة».')) return
+    const { error } = await supabase
+      .from('deposits')
+      .update({ status: 'held', receiver_name: null, delivery_guard_id: null, delivery_requested_at: null, delivered_at: null })
+      .eq('id', d.id)
+    if (error) return notify('تعذّر رفض الطلب')
+    notify('↩️ تم رفض طلب التسليم — الأمانة نشطة من جديد')
+    load()
+  }
+
+  const deleteDeposit = async (d) => {
+    if (!window.confirm(`هل أنت متأكد من حذف سجل أمانة «${d.depositor_name}» نهائياً؟`)) return
+    const { error } = await supabase.from('deposits').delete().eq('id', d.id)
+    if (error) return notify('تعذّر حذف السجل')
+    notify('✓ تم حذف السجل')
+    load()
+  }
+
+  const pagedDeposits = deposits.slice((depPage - 1) * depPageSize, depPage * depPageSize)
+
   const printPDF = () => {
     const target = day || new Date().toISOString().slice(0, 10)
     const rows = visits.filter((v) => new Date(v.entered_at).toISOString().slice(0, 10) === target)
@@ -319,7 +404,7 @@ tr:nth-child(even) td{background:#f4f2e8}
 
   const exportCSV = () => {
     const rows = [
-      ['الاسم', 'الهاتف', 'الرقم الوظيفي', 'الجهة', 'لوحة السيارة', 'الغاية', 'ملاحظات', 'الحارس المناوب', 'وقت الدخول', 'وقت الخروج', 'المدة'],
+      ['الاسم', 'الهاتف', 'الرقم الوظيفي', 'الجهة', 'لوحة السيارة', 'الغاية', 'ملاحظات', 'الحارس المناوب', 'وقت الدخول', 'وقت الخروج', 'حارس الخروج', 'المدة'],
       ...filtered.map((v) => [
         v.visitor_name,
         v.phone || '',
@@ -331,6 +416,7 @@ tr:nth-child(even) td{background:#f4f2e8}
         v.guards?.name || '',
         fmtDateTime(v.entered_at),
         v.exited_at ? fmtDateTime(v.exited_at) : 'داخل المديرية',
+        v.exit_guard?.name || '',
         duration(v.entered_at, v.exited_at),
       ]),
     ]
@@ -359,6 +445,14 @@ tr:nth-child(even) td{background:#f4f2e8}
         <div className="stat">
           <div className="num">{guards.filter((g) => g.active).length}</div>
           <div className="lbl">حرس في الخدمة</div>
+        </div>
+        <div className="stat">
+          <div className="num">{depositsHeld.length}</div>
+          <div className="lbl">أمانات نشطة</div>
+        </div>
+        <div className="stat">
+          <div className="num">{depositsPending.length}</div>
+          <div className="lbl">بانتظار موافقة التسليم</div>
         </div>
       </div>
 
@@ -418,23 +512,24 @@ tr:nth-child(even) td{background:#f4f2e8}
                   <th>اللوحة</th>
                   <th>الغاية</th>
                   <th>ملاحظات</th>
-                  <th>الحارس</th>
+                  <th>حارس الدخول</th>
                   <th>الدخول</th>
                   <th>الخروج</th>
+                  <th>حارس الخروج</th>
                   <th>المدة</th>
                   <th>الحالة</th>
                   <th></th>
                 </tr>
               </thead>
               <tbody>
-                {filtered.length === 0 ? (
+                {pagedFiltered.length === 0 ? (
                   <tr>
-                    <td colSpan={11} style={{ textAlign: 'center', color: 'var(--stone)' }}>
+                    <td colSpan={12} style={{ textAlign: 'center', color: 'var(--stone)' }}>
                       لا توجد نتائج
                     </td>
                   </tr>
                 ) : (
-                  filtered.map((v) => (
+                  pagedFiltered.map((v) => (
                     <Fragment key={v.id}>
                       <tr>
                         <td style={{ fontWeight: 700 }}>{v.visitor_name}</td>
@@ -445,6 +540,7 @@ tr:nth-child(even) td{background:#f4f2e8}
                         <td>{v.guards?.name || '—'}</td>
                         <td>{fmtDateTime(v.entered_at)}</td>
                         <td>{v.exited_at ? fmtDateTime(v.exited_at) : '—'}</td>
+                        <td>{v.exit_guard?.name || '—'}</td>
                         <td>{duration(v.entered_at, v.exited_at)}</td>
                         <td>
                           {v.exited_at ? <span className="pill out">غادر</span> : <span className="pill in">بالداخل</span>}
@@ -467,7 +563,7 @@ tr:nth-child(even) td{background:#f4f2e8}
                       </tr>
                       {edit && edit.id === v.id && (
                         <tr className="edit-row">
-                          <td colSpan={11}>
+                          <td colSpan={12}>
                             <form className="edit-form" onSubmit={saveEdit}>
                               <div className="field">
                                 <label>الاسم *</label>
@@ -519,6 +615,99 @@ tr:nth-child(even) td{background:#f4f2e8}
               </tbody>
             </table>
           </div>
+          <Pagination page={page} setPage={setPage} totalItems={filtered.length} pageSize={pageSize} setPageSize={setPageSize} />
+        </div>
+      </div>
+
+      <div className="card section-gap">
+        <div className="card-head">
+          <h2>الأمانات</h2>
+          <span className="badge">{deposits.length}</span>
+        </div>
+        <div className="card-body">
+          {depositsPending.length > 0 && (
+            <div style={{ marginBottom: 18 }}>
+              <p style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--damask)', marginBottom: 8 }}>
+                ⏳ طلبات تسليم بانتظار الموافقة ({depositsPending.length})
+              </p>
+              {depositsPending.map((d) => (
+                <div className="deposit-item" key={d.id}>
+                  <div className="info">
+                    <div className="name">
+                      <span className="dot" />
+                      {d.depositor_name}
+                    </div>
+                    <div className="meta">
+                      <span>📝 {d.description}</span>
+                      <span>🕐 استُلمت {fmtDateTime(d.received_at)}</span>
+                      {d.guards?.name && <span>🛡 استلمها: {d.guards.name}</span>}
+                      <span>👤 تُسلَّم إلى: {d.receiver_name}</span>
+                      <span>🕐 تاريخ التسليم: {fmtDateTime(d.delivered_at)}</span>
+                      {d.delivery_guard?.name && <span>🛡 طلب التسليم: {d.delivery_guard.name}</span>}
+                    </div>
+                  </div>
+                  <span style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                    <button className="btn btn-gold" style={{ padding: '8px 16px', fontSize: 13.5 }} onClick={() => approveDeposit(d)}>
+                      ✅ موافقة
+                    </button>
+                    <button className="btn btn-danger-ghost" onClick={() => rejectDeposit(d)}>
+                      ↩️ رفض
+                    </button>
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>صاحب الأمانة</th>
+                  <th>الوصف</th>
+                  <th>استلمها (حارس)</th>
+                  <th>تاريخ الاستلام</th>
+                  <th>الحالة</th>
+                  <th>المستلم</th>
+                  <th>تاريخ التسليم</th>
+                  <th>حارس التسليم</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {pagedDeposits.length === 0 ? (
+                  <tr>
+                    <td colSpan={9} style={{ textAlign: 'center', color: 'var(--stone)' }}>
+                      لا توجد سجلات أمانات
+                    </td>
+                  </tr>
+                ) : (
+                  pagedDeposits.map((d) => (
+                    <tr key={d.id}>
+                      <td style={{ fontWeight: 700 }}>{d.depositor_name}</td>
+                      <td style={{ whiteSpace: 'normal', minWidth: 140 }}>{d.description}</td>
+                      <td>{d.guards?.name || '—'}</td>
+                      <td>{fmtDateTime(d.received_at)}</td>
+                      <td>
+                        {d.status === 'held' && <span className="pill in">نشطة</span>}
+                        {d.status === 'pending' && <span className="pill pending">بانتظار الموافقة</span>}
+                        {d.status === 'delivered' && <span className="pill out">تم التسليم</span>}
+                      </td>
+                      <td>{d.receiver_name || '—'}</td>
+                      <td>{d.delivered_at ? fmtDateTime(d.delivered_at) : '—'}</td>
+                      <td>{d.delivery_guard?.name || '—'}</td>
+                      <td>
+                        <button className="btn btn-danger-ghost" title="حذف السجل" onClick={() => deleteDeposit(d)}>
+                          🗑
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+          <Pagination page={depPage} setPage={setDepPage} totalItems={deposits.length} pageSize={depPageSize} setPageSize={setDepPageSize} />
         </div>
       </div>
 
