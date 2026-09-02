@@ -39,6 +39,14 @@ export default function GuardView() {
     employee_id: '', org: '',
   })
 
+  // ===== الأمانات =====
+  const [deposits, setDeposits] = useState([])
+  const [depForm, setDepForm] = useState({ depositor_name: '', description: '' })
+  const [depSaving, setDepSaving] = useState(false)
+  const [deliverId, setDeliverId] = useState(null)
+  const [receiverName, setReceiverName] = useState('')
+  const [depSearch, setDepSearch] = useState('')
+
   // القوائم المنسدلة قابلة للتعديل من صفحة المدير — تُحمّل من قاعدة البيانات مع نسخة محلية للأوفلاين
   const DEFAULT_LISTS = {
     list_purposes: ['تدريب', 'مسابقة', 'مراجعة', 'طلب', 'زيارة أو اجتماع', 'أخرى'],
@@ -97,6 +105,16 @@ export default function GuardView() {
     if (!v.error) setActive(v.data)
   }, [])
 
+  const loadDeposits = useCallback(async () => {
+    if (!navigator.onLine) return
+    const d = await supabase
+      .from('deposits')
+      .select('*, guards!deposits_guard_id_fkey(name), delivery_guard:guards!deposits_delivery_guard_id_fkey(name)')
+      .in('status', ['held', 'pending'])
+      .order('received_at', { ascending: false })
+    if (!d.error) setDeposits(d.data)
+  }, [])
+
   // مزامنة الطابور: ترفع الإدخالات والمغادرات المعلقة بتوقيتها الحقيقي
   const flush = useCallback(async () => {
     if (!navigator.onLine) return
@@ -109,7 +127,10 @@ export default function GuardView() {
         const { error } = await supabase.from('visits').insert(op.record)
         ok = !error || error.code === '23505' // مُدخل سابقاً
       } else if (op.type === 'exit') {
-        const { error } = await supabase.from('visits').update({ exited_at: op.exited_at }).eq('id', op.id)
+        const { error } = await supabase
+          .from('visits')
+          .update({ exited_at: op.exited_at, exit_guard_id: op.exit_guard_id })
+          .eq('id', op.id)
         ok = !error
       }
       if (!ok) break
@@ -126,15 +147,18 @@ export default function GuardView() {
 
   useEffect(() => {
     load()
+    loadDeposits()
     flush()
     const t = setInterval(() => {
       load()
+      loadDeposits()
       flush()
     }, 15000)
     const onOnline = () => {
       setOnline(true)
       flush()
       load()
+      loadDeposits()
     }
     const onOffline = () => setOnline(false)
     window.addEventListener('online', onOnline)
@@ -144,7 +168,7 @@ export default function GuardView() {
       window.removeEventListener('online', onOnline)
       window.removeEventListener('offline', onOffline)
     }
-  }, [load, flush])
+  }, [load, loadDeposits, flush])
 
   const guardLogin = async (e) => {
     e.preventDefault()
@@ -241,28 +265,79 @@ export default function GuardView() {
   const exitVisitor = async (id, name) => {
     const exited_at = new Date().toISOString()
     const q = readQueue()
-    // إن كان التسجيل نفسه ما يزال معلقاً محلياً، نضيف وقت الخروج إليه مباشرة
+    // إن كان التسجيل نفسه ما يزال معلقاً محلياً، نضيف وقت الخروج وحارس الخروج إليه مباشرة
     const queuedInsert = q.find((op) => op.type === 'insert' && op.record.id === id)
     if (queuedInsert) {
       queuedInsert.record.exited_at = exited_at
+      queuedInsert.record.exit_guard_id = guard.id
       writeQueue(q)
       setPending([...q])
-      notify(`✓ سُجّل خروج ${name} (سيُرفع عند الاتصال)`)
+      notify(`✓ سُجّل خروج ${name} بواسطتك (سيُرفع عند الاتصال)`)
       return
     }
     if (navigator.onLine) {
-      const { error } = await supabase.from('visits').update({ exited_at }).eq('id', id)
+      const { error } = await supabase
+        .from('visits')
+        .update({ exited_at, exit_guard_id: guard.id })
+        .eq('id', id)
       if (!error) {
-        notify(`✓ تم تسجيل خروج ${name}`)
+        notify(`✓ تم تسجيل خروج ${name} بواسطتك`)
         load()
         return
       }
     }
-    q.push({ type: 'exit', id, exited_at })
+    q.push({ type: 'exit', id, exited_at, exit_guard_id: guard.id })
     writeQueue(q)
     setPending([...q])
     setActive((a) => a.filter((v) => v.id !== id))
     notify(`📴 سُجّل خروج ${name} محلياً وسيُرفع عند الاتصال`)
+  }
+
+  // ===== الأمانات =====
+  const receiveDeposit = async (e) => {
+    e.preventDefault()
+    if (!depForm.depositor_name.trim()) return notify('اسم صاحب الأمانة إلزامي')
+    if (!depForm.description.trim()) return notify('وصف الأمانة إلزامي')
+    if (!navigator.onLine) return notify('📴 تسجيل الأمانات يتطلب اتصالاً بالإنترنت')
+    setDepSaving(true)
+    const { error } = await supabase.from('deposits').insert({
+      depositor_name: depForm.depositor_name.trim(),
+      description: depForm.description.trim(),
+      guard_id: guard.id,
+      received_at: new Date().toISOString(),
+      status: 'held',
+    })
+    setDepSaving(false)
+    if (error) return notify('تعذّر تسجيل الأمانة')
+    setDepForm({ depositor_name: '', description: '' })
+    notify('✓ تم تسجيل استلام الأمانة')
+    loadDeposits()
+  }
+
+  const openDeliver = (dep) => {
+    setDeliverId(dep.id === deliverId ? null : dep.id)
+    setReceiverName('')
+  }
+
+  const submitDeliver = async (e, dep) => {
+    e.preventDefault()
+    if (!receiverName.trim()) return notify('اسم المستلم إلزامي')
+    if (!navigator.onLine) return notify('📴 تسليم الأمانات يتطلب اتصالاً بالإنترنت')
+    const now = new Date().toISOString()
+    const { error } = await supabase
+      .from('deposits')
+      .update({
+        receiver_name: receiverName.trim(),
+        delivery_guard_id: guard.id,
+        delivery_requested_at: now,
+        delivered_at: now,
+        status: 'pending',
+      })
+      .eq('id', dep.id)
+    if (error) return notify('تعذّر إرسال طلب التسليم')
+    setDeliverId(null)
+    notify('✓ أُرسل طلب التسليم إلى المدير للموافقة')
+    loadDeposits()
   }
 
   // القائمة المعروضة = تسجيلات الخادم + المعلقة محلياً (غير المغادرة)
@@ -284,6 +359,15 @@ export default function GuardView() {
           .some((f) => String(f).toLowerCase().includes(searchNorm))
       )
     : shownActive
+
+  const depSearchNorm = depSearch.trim().toLowerCase()
+  const filteredDeposits = depSearchNorm
+    ? deposits.filter((d) =>
+        [d.depositor_name, d.description]
+          .filter(Boolean)
+          .some((f) => String(f).toLowerCase().includes(depSearchNorm))
+      )
+    : deposits
 
   if (!guard) {
     return (
@@ -555,9 +639,115 @@ export default function GuardView() {
           )}
         </div>
       </div>
+    </div>
+
+    <div className="grid section-gap">
+      <div className="card">
+        <div className="card-head">
+          <h2>📦 استلام أمانة</h2>
+        </div>
+        <div className="card-body">
+          <p style={{ fontSize: 12.5, color: 'var(--stone)', marginBottom: 12 }}>
+            سُجَّل تاريخ الاستلام تلقائياً بلحظة إدخال البيانات. تبقى الأمانة نشطة داخل المديرية حتى يُطلب تسليمها وتتم موافقة المدير.
+          </p>
+          <form onSubmit={receiveDeposit}>
+            <div className="field">
+              <label>
+                اسم صاحب الأمانة <span className="req">*</span>
+              </label>
+              <input
+                value={depForm.depositor_name}
+                onChange={(e) => setDepForm({ ...depForm, depositor_name: e.target.value })}
+                placeholder="اسم الشخص الذي سلّم الأمانة"
+                required
+              />
+            </div>
+            <div className="field">
+              <label>
+                وصف الأمانة <span className="req">*</span>
+              </label>
+              <textarea
+                rows={2}
+                value={depForm.description}
+                onChange={(e) => setDepForm({ ...depForm, description: e.target.value })}
+                placeholder="نوع الأمانة ومواصفاتها (مثال: هوية شخصية، مفتاح سيارة، ظرف مستندات…)"
+                required
+              />
+            </div>
+            <button className="btn btn-primary" disabled={depSaving}>
+              {depSaving ? 'جارٍ التسجيل…' : '📦 تسجيل استلام الأمانة'}
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="card-head">
+          <h2>الأمانات النشطة</h2>
+          <span className="badge">{filteredDeposits.length}</span>
+        </div>
+        <div className="card-body">
+          <div className="field" style={{ marginBottom: 12 }}>
+            <input
+              value={depSearch}
+              onChange={(e) => setDepSearch(e.target.value)}
+              placeholder="🔍 ابحث باسم صاحب الأمانة أو وصفها…"
+            />
+          </div>
+          {deposits.length === 0 ? (
+            <div className="empty">لا توجد أمانات نشطة حالياً</div>
+          ) : filteredDeposits.length === 0 ? (
+            <div className="empty">لا توجد نتائج مطابقة للبحث</div>
+          ) : (
+            filteredDeposits.map((d) => (
+              <div className="deposit-item" key={d.id}>
+                <div className="info">
+                  <div className="name">
+                    <span className="dot" />
+                    {d.depositor_name}
+                    {d.status === 'pending' ? (
+                      <span className="pill pending" style={{ marginInlineStart: 8 }}>⏳ بانتظار موافقة المدير</span>
+                    ) : (
+                      <span className="pill in" style={{ marginInlineStart: 8 }}>نشطة</span>
+                    )}
+                  </div>
+                  <div className="meta">
+                    <span>📝 {d.description}</span>
+                    <span>🕐 استُلمت {fmtDateTime(d.received_at)}</span>
+                    {d.guards?.name && <span>🛡 {d.guards.name}</span>}
+                    {d.status === 'pending' && d.receiver_name && <span>👤 المستلم: {d.receiver_name}</span>}
+                    {d.status === 'pending' && d.delivery_guard?.name && <span>🛡 طلب التسليم: {d.delivery_guard.name}</span>}
+                  </div>
+                </div>
+                {d.status === 'held' && (
+                  <button className="btn btn-gold" style={{ padding: '8px 16px', fontSize: 13.5 }} onClick={() => openDeliver(d)}>
+                    تسليم
+                  </button>
+                )}
+                {d.status === 'held' && deliverId === d.id && (
+                  <form className="acc-form" style={{ flexBasis: '100%' }} onSubmit={(e) => submitDeliver(e, d)}>
+                    <input
+                      placeholder="اسم مستلم الأمانة"
+                      value={receiverName}
+                      onChange={(e) => setReceiverName(e.target.value)}
+                      autoFocus
+                    />
+                    <button className="btn btn-gold" style={{ padding: '8px 16px', fontSize: 13.5 }}>
+                      إرسال طلب التسليم
+                    </button>
+                    <button type="button" className="btn btn-ghost" style={{ padding: '8px 16px', fontSize: 13.5 }} onClick={() => setDeliverId(null)}>
+                      إلغاء
+                    </button>
+                  </form>
+                )}
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    </div>
 
       {toast && <div className="toast">{toast}</div>}
-    </div>
     </div>
   )
 }
