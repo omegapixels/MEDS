@@ -438,17 +438,19 @@ tr:nth-child(even) td{background:#f4f2e8}
   }
 
   const exportDepositsXLSX = () => {
-    const header = ['صاحب الأمانة', 'الوصف', 'استلمها (حارس)', 'تاريخ الاستلام', 'الحالة', 'المستلم', 'تاريخ التسليم', 'حارس التسليم']
+    const header = ['صاحب الأمانة', 'الوصف', 'لوحة السيارة (استلام)', 'استلمها (حارس)', 'تاريخ الاستلام', 'الحالة', 'المستلم', 'لوحة السيارة (تسليم)', 'تاريخ التسليم', 'حارس التسليم']
     const statusAr = { held: 'نشطة', pending: 'بانتظار الموافقة', delivered: 'تم التسليم' }
     const rows = [
       header,
       ...deposits.map((d) => [
         d.depositor_name,
         d.description,
+        d.plate || '',
         d.guards?.name || '',
         fmtDateTime(d.received_at),
         statusAr[d.status] || d.status,
         d.receiver_name || '',
+        d.delivery_plate || '',
         d.delivered_at ? fmtDateTime(d.delivered_at) : '',
         d.delivery_guard?.name || '',
       ]),
@@ -679,9 +681,11 @@ tr:nth-child(even) td{background:#f4f2e8}
                     </div>
                     <div className="meta">
                       <span>📝 {d.description}</span>
+                      {d.plate && <span>🚗 لوحة الاستلام: {d.plate}</span>}
                       <span>🕐 استُلمت {fmtDateTime(d.received_at)}</span>
                       {d.guards?.name && <span>🛡 استلمها: {d.guards.name}</span>}
                       <span>👤 تُسلَّم إلى: {d.receiver_name}</span>
+                      {d.delivery_plate && <span>🚗 لوحة التسليم: {d.delivery_plate}</span>}
                       <span>🕐 تاريخ التسليم: {fmtDateTime(d.delivered_at)}</span>
                       {d.delivery_guard?.name && <span>🛡 طلب التسليم: {d.delivery_guard.name}</span>}
                     </div>
@@ -705,10 +709,12 @@ tr:nth-child(even) td{background:#f4f2e8}
                 <tr>
                   <th>صاحب الأمانة</th>
                   <th>الوصف</th>
+                  <th>لوحة الاستلام</th>
                   <th>استلمها (حارس)</th>
                   <th>تاريخ الاستلام</th>
                   <th>الحالة</th>
                   <th>المستلم</th>
+                  <th>لوحة التسليم</th>
                   <th>تاريخ التسليم</th>
                   <th>حارس التسليم</th>
                   <th></th>
@@ -717,7 +723,7 @@ tr:nth-child(even) td{background:#f4f2e8}
               <tbody>
                 {pagedDeposits.length === 0 ? (
                   <tr>
-                    <td colSpan={9} style={{ textAlign: 'center', color: 'var(--stone)' }}>
+                    <td colSpan={11} style={{ textAlign: 'center', color: 'var(--stone)' }}>
                       لا توجد سجلات أمانات
                     </td>
                   </tr>
@@ -726,6 +732,7 @@ tr:nth-child(even) td{background:#f4f2e8}
                     <tr key={d.id}>
                       <td style={{ fontWeight: 700 }}>{d.depositor_name}</td>
                       <td style={{ whiteSpace: 'normal', minWidth: 140 }}>{d.description}</td>
+                      <td dir="ltr">{d.plate || '—'}</td>
                       <td>{d.guards?.name || '—'}</td>
                       <td>{fmtDateTime(d.received_at)}</td>
                       <td>
@@ -734,6 +741,7 @@ tr:nth-child(even) td{background:#f4f2e8}
                         {d.status === 'delivered' && <span className="pill out">تم التسليم</span>}
                       </td>
                       <td>{d.receiver_name || '—'}</td>
+                      <td dir="ltr">{d.delivery_plate || '—'}</td>
                       <td>{d.delivered_at ? fmtDateTime(d.delivered_at) : '—'}</td>
                       <td>{d.delivery_guard?.name || '—'}</td>
                       <td>
