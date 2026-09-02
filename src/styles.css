@@ -294,6 +294,22 @@ body::before {
 
 .empty { text-align: center; color: var(--stone); padding: 26px 10px; font-size: 14px; }
 
+/* ===== الأمانات ===== */
+.deposit-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 13px 6px;
+  border-bottom: 1px dashed rgba(149, 133, 99, 0.5);
+}
+.deposit-item:last-child { border-bottom: none; }
+.deposit-item .info { min-width: 0; flex: 1 1 220px; }
+.deposit-item .name { font-weight: 700; color: var(--forest); font-size: 15.5px; display: flex; align-items: center; flex-wrap: wrap; gap: 4px; }
+.deposit-item .meta { font-size: 12.5px; color: var(--stone); margin-top: 3px; }
+.deposit-item .meta span { margin-inline-end: 12px; white-space: nowrap; }
+
 /* ===== الإحصائيات ===== */
 .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 14px; margin-bottom: 22px; }
 .stat {
@@ -323,6 +339,27 @@ tr:hover td { background: rgba(66, 129, 119, 0.08); }
 .pill { border-radius: 999px; padding: 3px 10px; font-size: 12px; font-weight: 700; }
 .pill.in { background: rgba(66, 129, 119, 0.18); color: var(--emerald); }
 .pill.out { background: rgba(60, 60, 61, 0.12); color: var(--stone); }
+.pill.pending { background: rgba(185, 167, 121, 0.3); color: #7a6a3f; }
+
+/* ===== ترقيم الصفحات ===== */
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px dashed rgba(149, 133, 99, 0.5);
+}
+.pagination .page-info { font-size: 13px; color: var(--stone); white-space: nowrap; }
+.pagination select {
+  padding: 7px 10px;
+  border: 1.5px solid var(--sand);
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 13px;
+}
 
 /* ===== دخول المدير ===== */
 .lock {
@@ -459,6 +496,10 @@ tr:hover td { background: rgba(66, 129, 119, 0.08); }
   .person .meta { display: flex; flex-wrap: wrap; gap: 4px 12px; }
   .person .meta span { margin-inline-end: 0; white-space: normal; }
   .person .btn-exit { margin-inline-start: auto; }
+  .deposit-item { flex-wrap: wrap; }
+  .deposit-item .info { flex: 1 1 100%; min-width: 0; }
+  .deposit-item .meta { display: flex; flex-wrap: wrap; gap: 4px 12px; }
+  .deposit-item .meta span { margin-inline-end: 0; white-space: normal; }
   .guard-row { gap: 8px; }
   .guard-row .g-name { min-width: 0; overflow-wrap: anywhere; flex: 1; }
   .add-guard input { min-width: 0; }
@@ -471,4 +512,5 @@ tr:hover td { background: rgba(66, 129, 119, 0.08); }
   table { font-size: 12.5px; }
   th, td { padding: 8px 8px; }
   .badge { flex-shrink: 0; }
+  .pagination { gap: 8px; }
 }
