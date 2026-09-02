@@ -85,6 +85,7 @@ function Dashboard({ onLock }) {
   const [deposits, setDeposits] = useState([])
   const [q, setQ] = useState('')
   const [day, setDay] = useState('')
+  const [month, setMonth] = useState('')
   const [fGuard, setFGuard] = useState('')
   const [fPurpose, setFPurpose] = useState('')
   const [fStatus, setFStatus] = useState('')
@@ -403,6 +404,138 @@ tr:nth-child(even) td{background:#f4f2e8}
     w.document.close()
   }
 
+  // ===== التقرير الشهري =====
+  const printMonthlyPDF = () => {
+    const target = month || new Date().toISOString().slice(0, 7) // YYYY-MM
+    const [yy, mm] = target.split('-').map(Number)
+    const monthStr = new Date(target + '-01T12:00:00').toLocaleDateString('ar-SY-u-nu-latn', {
+      year: 'numeric', month: 'long',
+    })
+    const rows = visits
+      .filter((v) => new Date(v.entered_at).toISOString().slice(0, 7) === target)
+      .sort((a, b) => new Date(a.entered_at) - new Date(b.entered_at))
+
+    const daysInMonth = new Date(yy, mm, 0).getDate()
+    const perDay = Array.from({ length: daysInMonth }, (_, i) => {
+      const d = String(i + 1).padStart(2, '0')
+      const dateKey = `${target}-${d}`
+      const dayRows = rows.filter((v) => v.entered_at.slice(0, 10) === dateKey)
+      return { day: i + 1, entries: dayRows.length, exits: dayRows.filter((v) => v.exited_at).length }
+    }).filter((d) => d.entries > 0)
+
+    const guestCount = rows.filter((v) => (v.visitor_type || 'guest') === 'guest').length
+    const staffCount = rows.filter((v) => v.visitor_type === 'staff').length
+    const stillInside = rows.filter((v) => !v.exited_at).length
+    const byGuard = {}
+    rows.forEach((v) => {
+      const n = v.guards?.name || 'غير محدد'
+      byGuard[n] = (byGuard[n] || 0) + 1
+    })
+    const guardRows = Object.entries(byGuard).sort((a, b) => b[1] - a[1])
+
+    const dayBody = perDay.length
+      ? perDay.map((d) => `<tr><td>${d.day}</td><td>${d.entries}</td><td>${d.exits}</td></tr>`).join('')
+      : '<tr><td colspan="3" style="text-align:center">لا توجد بيانات</td></tr>'
+
+    const guardBody = guardRows.length
+      ? guardRows.map(([n, c]) => `<tr><td>${n}</td><td>${c}</td></tr>`).join('')
+      : '<tr><td colspan="2" style="text-align:center">لا توجد بيانات</td></tr>'
+
+    const body = rows.length
+      ? rows
+          .map(
+            (v, i) => `<tr>
+              <td>${i + 1}</td>
+              <td class="b">${v.visitor_name}</td>
+              <td dir="ltr">${v.phone || v.employee_id || '—'}</td>
+              <td dir="ltr">${v.plate || '—'}</td>
+              <td>${v.purpose || '—'}</td>
+              <td>${v.guards?.name || '—'}</td>
+              <td>${fmtDateTime(v.entered_at)}</td>
+              <td>${v.exited_at ? fmtDateTime(v.exited_at) : 'لم يغادر'}</td>
+              <td>${duration(v.entered_at, v.exited_at)}</td>
+            </tr>`
+          )
+          .join('')
+      : '<tr><td colspan="9" style="text-align:center">لا توجد زيارات مسجلة في هذا الشهر</td></tr>'
+
+    const html = `<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8">
+<title>التقرير الشهري — ${monthStr}</title>
+<style>
+@font-face{font-family:'Qomra';src:url('${location.origin}/fonts/Qomra-Regular.woff2') format('woff2');font-weight:400}
+@font-face{font-family:'Qomra';src:url('${location.origin}/fonts/Qomra-Bold.woff2') format('woff2');font-weight:700}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Qomra','IBM Plex Sans Arabic',sans-serif;color:#161616;padding:20px;font-size:11px}
+.head{text-align:center;border-bottom:2px solid #b9a779;padding-bottom:14px;margin-bottom:6px}
+.head .stars{color:#b9a779;letter-spacing:6px;font-size:13px}
+.head h1{color:#002723;font-size:20px;margin:6px 0 2px}
+.head h2{color:#02443a;font-size:15px;font-weight:400}
+.meta{display:flex;justify-content:space-between;margin:12px 0;font-size:13.5px;color:#3c3c3d}
+h3{color:#02443a;font-size:14px;margin:22px 0 8px;border-bottom:1px solid #cfc9b5;padding-bottom:4px}
+table{width:100%;border-collapse:collapse;margin-top:6px}
+th{background:#02443a;color:#b9a779;padding:6px 5px;font-size:10.5px;text-align:right}
+td{border:1px solid #cfc9b5;padding:5px 5px}
+td.b{font-weight:700}
+tr:nth-child(even) td{background:#f4f2e8}
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:14px 0}
+.stat-box{border:1px solid #cfc9b5;border-radius:8px;padding:10px;text-align:center}
+.stat-box .n{font-size:20px;font-weight:700;color:#02443a}
+.stat-box .l{font-size:10.5px;color:#3c3c3d;margin-top:2px}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.sign{display:flex;justify-content:space-between;margin-top:50px;padding:0 30px}
+.sign .box{text-align:center;width:220px}
+.sign .line{border-top:1.5px solid #161616;margin-top:55px;padding-top:8px;font-weight:700;color:#002723}
+@page{size:A4 portrait;margin:10mm}
+@media print{body{padding:10px} .page-break{page-break-before:always}}
+</style></head><body>
+<div class="head">
+  <img src="${location.origin}/logo.png" alt="" style="height:110px;object-fit:contain;margin-bottom:6px" />
+  <h1>مديرية الطوارئ وإدارة الكوارث — حمص</h1>
+  <h2>التقرير الشهري لسجل دخول وخروج الزوار</h2>
+</div>
+<div class="meta"><span>الشهر: ${monthStr}</span><span>إجمالي الزيارات: ${rows.length}</span></div>
+
+<div class="stats-grid">
+  <div class="stat-box"><div class="n">${rows.length}</div><div class="l">إجمالي الزيارات</div></div>
+  <div class="stat-box"><div class="n">${guestCount}</div><div class="l">ضيوف خارجيون</div></div>
+  <div class="stat-box"><div class="n">${staffCount}</div><div class="l">فرق الوزارة والمديريات</div></div>
+  <div class="stat-box"><div class="n">${stillInside}</div><div class="l">ما زالوا بالداخل</div></div>
+</div>
+
+<div class="two-col">
+  <div>
+    <h3>التوزيع اليومي</h3>
+    <table>
+      <thead><tr><th>اليوم</th><th>عدد الدخول</th><th>عدد الخروج</th></tr></thead>
+      <tbody>${dayBody}</tbody>
+    </table>
+  </div>
+  <div>
+    <h3>التوزيع حسب الحارس المناوب</h3>
+    <table>
+      <thead><tr><th>الحارس</th><th>عدد الزيارات المسجّلة</th></tr></thead>
+      <tbody>${guardBody}</tbody>
+    </table>
+  </div>
+</div>
+
+<h3 class="page-break">السجل التفصيلي الكامل</h3>
+<table>
+  <thead><tr><th>#</th><th>الاسم</th><th>الهاتف/الرقم الوظيفي</th><th>لوحة السيارة</th><th>الغاية</th><th>الحارس المناوب</th><th>الدخول</th><th>الخروج</th><th>المدة</th></tr></thead>
+  <tbody>${body}</tbody>
+</table>
+
+<div class="sign">
+  <div class="box"><div class="line">توقيع مسؤول الحراسة</div></div>
+  <div class="box"><div class="line">توقيع رئيس الدائرة</div></div>
+</div>
+<script>window.onload=()=>setTimeout(()=>window.print(),400)</` + `script>
+</body></html>`
+    const w = window.open('', '_blank')
+    w.document.write(html)
+    w.document.close()
+  }
+
   // تصدير جدول Excel حقيقي (بدل CSV) — يفتح بترميز عربي سليم وأعمدة مضبوطة تلقائياً
   const autoWidth = (rows) =>
     rows[0].map((_, colIdx) => ({
@@ -500,6 +633,19 @@ tr:nth-child(even) td{background:#f4f2e8}
             <button className="btn btn-gold" style={{ padding: '7px 14px', fontSize: 13 }} onClick={printPDF}>
               🖨 تقرير PDF اليومي
             </button>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <input
+                type="month"
+                lang="en"
+                dir="ltr"
+                value={month}
+                onChange={(e) => setMonth(e.target.value)}
+                style={{ padding: '7px 10px', border: '1.5px solid var(--sand)', borderRadius: 8, fontFamily: 'inherit', fontSize: 13 }}
+              />
+              <button className="btn btn-gold" style={{ padding: '7px 14px', fontSize: 13 }} onClick={printMonthlyPDF}>
+                🖨 تقرير PDF شهري
+              </button>
+            </span>
             <button className="btn btn-gold" style={{ padding: '7px 14px', fontSize: 13 }} onClick={exportXLSX}>
               ⬇ تصدير Excel
             </button>
