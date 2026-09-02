@@ -41,10 +41,11 @@ export default function GuardView() {
 
   // ===== الأمانات =====
   const [deposits, setDeposits] = useState([])
-  const [depForm, setDepForm] = useState({ depositor_name: '', description: '' })
+  const [depForm, setDepForm] = useState({ depositor_name: '', description: '', plate: '' })
   const [depSaving, setDepSaving] = useState(false)
   const [deliverId, setDeliverId] = useState(null)
   const [receiverName, setReceiverName] = useState('')
+  const [deliverPlate, setDeliverPlate] = useState('')
   const [depSearch, setDepSearch] = useState('')
 
   // القوائم المنسدلة قابلة للتعديل من صفحة المدير — تُحمّل من قاعدة البيانات مع نسخة محلية للأوفلاين
@@ -303,13 +304,14 @@ export default function GuardView() {
     const { error } = await supabase.from('deposits').insert({
       depositor_name: depForm.depositor_name.trim(),
       description: depForm.description.trim(),
+      plate: depForm.plate.trim() || null,
       guard_id: guard.id,
       received_at: new Date().toISOString(),
       status: 'held',
     })
     setDepSaving(false)
     if (error) return notify('تعذّر تسجيل الأمانة')
-    setDepForm({ depositor_name: '', description: '' })
+    setDepForm({ depositor_name: '', description: '', plate: '' })
     notify('✓ تم تسجيل استلام الأمانة')
     loadDeposits()
   }
@@ -317,6 +319,7 @@ export default function GuardView() {
   const openDeliver = (dep) => {
     setDeliverId(dep.id === deliverId ? null : dep.id)
     setReceiverName('')
+    setDeliverPlate('')
   }
 
   const submitDeliver = async (e, dep) => {
@@ -328,6 +331,7 @@ export default function GuardView() {
       .from('deposits')
       .update({
         receiver_name: receiverName.trim(),
+        delivery_plate: deliverPlate.trim() || null,
         delivery_guard_id: guard.id,
         delivery_requested_at: now,
         delivered_at: now,
@@ -674,6 +678,16 @@ export default function GuardView() {
                 required
               />
             </div>
+            <div className="field">
+              <label>لوحة السيارة (اختياري)</label>
+              <input
+                value={depForm.plate}
+                onChange={(e) => setDepForm({ ...depForm, plate: e.target.value.replace(/[^0-9]/g, '') })}
+                placeholder="أرقام فقط (اختياري)"
+                inputMode="numeric"
+                dir="ltr"
+              />
+            </div>
             <button className="btn btn-primary" disabled={depSaving}>
               {depSaving ? 'جارٍ التسجيل…' : '📦 تسجيل استلام الأمانة'}
             </button>
@@ -713,9 +727,11 @@ export default function GuardView() {
                   </div>
                   <div className="meta">
                     <span>📝 {d.description}</span>
+                    {d.plate && <span>🚗 {d.plate}</span>}
                     <span>🕐 استُلمت {fmtDateTime(d.received_at)}</span>
                     {d.guards?.name && <span>🛡 {d.guards.name}</span>}
                     {d.status === 'pending' && d.receiver_name && <span>👤 المستلم: {d.receiver_name}</span>}
+                    {d.status === 'pending' && d.delivery_plate && <span>🚗 لوحة المستلم: {d.delivery_plate}</span>}
                     {d.status === 'pending' && d.delivery_guard?.name && <span>🛡 طلب التسليم: {d.delivery_guard.name}</span>}
                   </div>
                 </div>
@@ -731,6 +747,13 @@ export default function GuardView() {
                       value={receiverName}
                       onChange={(e) => setReceiverName(e.target.value)}
                       autoFocus
+                    />
+                    <input
+                      placeholder="لوحة السيارة (اختياري)"
+                      value={deliverPlate}
+                      onChange={(e) => setDeliverPlate(e.target.value.replace(/[^0-9]/g, ''))}
+                      inputMode="numeric"
+                      dir="ltr"
                     />
                     <button className="btn btn-gold" style={{ padding: '8px 16px', fontSize: 13.5 }}>
                       إرسال طلب التسليم
