@@ -33,6 +33,7 @@ export default function GuardView() {
   const [online, setOnline] = useState(navigator.onLine)
   const [vtype, setVtype] = useState('guest')
   const [bulk, setBulk] = useState(false)
+  const [search, setSearch] = useState('')
   const [form, setForm] = useState({
     visitor_name: '', names: '', phone: '', plate: '', purpose: '', training_dept: '', homs_dept: '', notes: '',
     employee_id: '', org: '',
@@ -274,6 +275,16 @@ export default function GuardView() {
     ...active.filter((v) => !pendingExits.has(v.id) && !pendingActive.some((p) => p.id === v.id)),
   ]
 
+  // تصفية القائمة حسب نص البحث (الاسم، الهاتف، الجهة، الرقم الوظيفي)
+  const searchNorm = search.trim().toLowerCase()
+  const filteredActive = searchNorm
+    ? shownActive.filter((v) =>
+        [v.visitor_name, v.phone, v.org, v.employee_id, v.plate]
+          .filter(Boolean)
+          .some((f) => String(f).toLowerCase().includes(searchNorm))
+      )
+    : shownActive
+
   if (!guard) {
     return (
       <div className="card lock">
@@ -503,13 +514,22 @@ export default function GuardView() {
       <div className="card">
         <div className="card-head">
           <h2>المتواجدون حالياً داخل المديرية</h2>
-          <span className="badge">{shownActive.length}</span>
+          <span className="badge">{filteredActive.length}</span>
         </div>
         <div className="card-body">
+          <div className="field" style={{ marginBottom: 12 }}>
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="🔍 ابحث بالاسم، الهاتف، الجهة، أو الرقم الوظيفي…"
+            />
+          </div>
           {shownActive.length === 0 ? (
             <div className="empty">لا يوجد زوار داخل المديرية حالياً</div>
+          ) : filteredActive.length === 0 ? (
+            <div className="empty">لا توجد نتائج مطابقة للبحث</div>
           ) : (
-            shownActive.map((v) => (
+            filteredActive.map((v) => (
               <div className="person" key={v.id}>
                 <div className="info">
                   <div className="name">
