@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useState, useCallback } from 'react'
+import * as XLSX from 'xlsx'
 import { supabase } from './supabase.js'
 import { fmtDateTime, fmtTime, duration, todayISO } from './helpers.js'
 
@@ -402,29 +403,63 @@ tr:nth-child(even) td{background:#f4f2e8}
     w.document.close()
   }
 
-  const exportCSV = () => {
+  // تصدير جدول Excel حقيقي (بدل CSV) — يفتح بترميز عربي سليم وأعمدة مضبوطة تلقائياً
+  const autoWidth = (rows) =>
+    rows[0].map((_, colIdx) => ({
+      wch: Math.min(45, Math.max(10, ...rows.map((r) => String(r[colIdx] ?? '').length)) + 2),
+    }))
+
+  const exportXLSX = () => {
+    const header = ['الاسم', 'الهاتف / الرقم الوظيفي', 'الجهة', 'لوحة السيارة', 'الغاية', 'ملاحظات', 'حارس الدخول', 'وقت الدخول', 'وقت الخروج', 'حارس الخروج', 'المدة', 'الحالة']
     const rows = [
-      ['الاسم', 'الهاتف', 'الرقم الوظيفي', 'الجهة', 'لوحة السيارة', 'الغاية', 'ملاحظات', 'الحارس المناوب', 'وقت الدخول', 'وقت الخروج', 'حارس الخروج', 'المدة'],
+      header,
       ...filtered.map((v) => [
         v.visitor_name,
-        v.phone || '',
-        v.employee_id || '',
+        v.phone || v.employee_id || '',
         v.org || '',
         v.plate || '',
         v.purpose || '',
         v.notes || '',
         v.guards?.name || '',
         fmtDateTime(v.entered_at),
-        v.exited_at ? fmtDateTime(v.exited_at) : 'داخل المديرية',
+        v.exited_at ? fmtDateTime(v.exited_at) : '',
         v.exit_guard?.name || '',
         duration(v.entered_at, v.exited_at),
+        v.exited_at ? 'غادر' : 'بالداخل',
       ]),
     ]
-    const csv = '﻿' + rows.map((r) => r.map((c) => `"${String(c).replaceAll('"', '""')}"`).join(',')).join('\n')
-    const a = document.createElement('a')
-    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }))
-    a.download = `سجل-الزوار-${new Date().toISOString().slice(0, 10)}.csv`
-    a.click()
+    const ws = XLSX.utils.aoa_to_sheet(rows)
+    ws['!cols'] = autoWidth(rows)
+    ws['!rtl'] = true
+    const wb = XLSX.utils.book_new()
+    wb.Workbook = { Views: [{ RTL: true }] }
+    XLSX.utils.book_append_sheet(wb, ws, 'سجل الزيارات')
+    XLSX.writeFile(wb, `سجل-الزوار-${new Date().toISOString().slice(0, 10)}.xlsx`)
+  }
+
+  const exportDepositsXLSX = () => {
+    const header = ['صاحب الأمانة', 'الوصف', 'استلمها (حارس)', 'تاريخ الاستلام', 'الحالة', 'المستلم', 'تاريخ التسليم', 'حارس التسليم']
+    const statusAr = { held: 'نشطة', pending: 'بانتظار الموافقة', delivered: 'تم التسليم' }
+    const rows = [
+      header,
+      ...deposits.map((d) => [
+        d.depositor_name,
+        d.description,
+        d.guards?.name || '',
+        fmtDateTime(d.received_at),
+        statusAr[d.status] || d.status,
+        d.receiver_name || '',
+        d.delivered_at ? fmtDateTime(d.delivered_at) : '',
+        d.delivery_guard?.name || '',
+      ]),
+    ]
+    const ws = XLSX.utils.aoa_to_sheet(rows)
+    ws['!cols'] = autoWidth(rows)
+    ws['!rtl'] = true
+    const wb = XLSX.utils.book_new()
+    wb.Workbook = { Views: [{ RTL: true }] }
+    XLSX.utils.book_append_sheet(wb, ws, 'سجل الأمانات')
+    XLSX.writeFile(wb, `سجل-الأمانات-${new Date().toISOString().slice(0, 10)}.xlsx`)
   }
 
   return (
@@ -463,8 +498,8 @@ tr:nth-child(even) td{background:#f4f2e8}
             <button className="btn btn-gold" style={{ padding: '7px 14px', fontSize: 13 }} onClick={printPDF}>
               🖨 تقرير PDF اليومي
             </button>
-            <button className="btn btn-gold" style={{ padding: '7px 14px', fontSize: 13 }} onClick={exportCSV}>
-              ⬇ تصدير CSV
+            <button className="btn btn-gold" style={{ padding: '7px 14px', fontSize: 13 }} onClick={exportXLSX}>
+              ⬇ تصدير Excel
             </button>
             <button className="btn btn-exit" onClick={onLock}>
               قفل
@@ -622,7 +657,12 @@ tr:nth-child(even) td{background:#f4f2e8}
       <div className="card section-gap">
         <div className="card-head">
           <h2>الأمانات</h2>
-          <span className="badge">{deposits.length}</span>
+          <div className="head-actions">
+            <button className="btn btn-gold" style={{ padding: '7px 14px', fontSize: 13 }} onClick={exportDepositsXLSX}>
+              ⬇ تصدير Excel
+            </button>
+            <span className="badge">{deposits.length}</span>
+          </div>
         </div>
         <div className="card-body">
           {depositsPending.length > 0 && (
