@@ -100,7 +100,7 @@ export default function GuardView() {
     if (!navigator.onLine) return
     const v = await supabase
       .from('visits')
-      .select('*, guards(name)')
+      .select('*, guards!visits_guard_id_fkey(name), exit_guard:guards!visits_exit_guard_id_fkey(name)')
       .is('exited_at', null)
       .order('entered_at', { ascending: false })
     if (!v.error) setActive(v.data)
